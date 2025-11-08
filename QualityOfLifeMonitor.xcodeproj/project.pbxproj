@@ -6,8 +6,13 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		16F9E90E2EBF6B8E00BF0867 /* .gitignore in Resources */ = {isa = PBXBuildFile; fileRef = 16F9E90D2EBF6B8E00BF0867 /* .gitignore */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		16F93F462EBC85EC00669166 /* QualityOfLifeMonitor.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = QualityOfLifeMonitor.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		16F9E90D2EBF6B8E00BF0867 /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -47,6 +52,7 @@
 			children = (
 				16F93F482EBC85EC00669166 /* QualityOfLifeMonitor */,
 				16F93F472EBC85EC00669166 /* Products */,
+				16F9E90D2EBF6B8E00BF0867 /* .gitignore */,
 			);
 			sourceTree = "<group>";
 		};
@@ -122,6 +128,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				16F9E90E2EBF6B8E00BF0867 /* .gitignore in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
