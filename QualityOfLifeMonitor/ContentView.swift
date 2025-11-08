@@ -9,6 +9,7 @@ import SwiftUI
 import UIKit
 import Combine
 import CoreLocation
+import CoreData
 
 struct StatusView: View {
     @Environment(\.scenePhase) private var scenePhase
@@ -67,6 +68,22 @@ struct StatusView: View {
                     viewModel.refresh()
                 }
             }
+        }
+    }
+}
+
+struct ContentView: View {
+    var body: some View {
+        TabView {
+            StatusView()
+                .tabItem {
+                    Label("Prerequisites", systemImage: "checklist")
+                }
+            DataRootView()
+                .environment(\.managedObjectContext, CoreDataManager.shared.context)
+                .tabItem {
+                    Label("Data", systemImage: "tray.full")
+                }
         }
     }
 }
@@ -150,5 +167,6 @@ final class StatusViewModel: NSObject, ObservableObject, CLLocationManagerDelega
 }
 
 #Preview {
-    StatusView()
+    ContentView()
 }
+

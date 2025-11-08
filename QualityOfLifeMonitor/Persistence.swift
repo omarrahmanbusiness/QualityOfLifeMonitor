@@ -6,7 +6,7 @@ struct PersistenceController {
     let container: NSPersistentContainer
 
     init(inMemory: Bool = false) {
-        container = NSPersistentContainer(name: "Model")
+        container = NSPersistentContainer(name: "LocationModel")
         if inMemory {
             let description = NSPersistentStoreDescription()
             description.type = NSInMemoryStoreType
