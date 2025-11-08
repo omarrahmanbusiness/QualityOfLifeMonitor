@@ -25,7 +25,7 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
 
     func start() {
         // Request Always so background delivery is permitted
-        locationManager.requestAlwaysAuthorization()
+        // locationManager.requestAlwaysAuthorization()  // Removed as per instructions
 
         // Enable background location updates; requires Background Modes capability
         locationManager.allowsBackgroundLocationUpdates = true
@@ -58,18 +58,22 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
             AppLog.location.notice("Authorization: Always")
             FileLogger.shared.log("Authorization: Always")
         case .authorizedWhenInUse:
+            manager.stopMonitoringSignificantLocationChanges()
             AppLog.location.info("Authorization: When In Use (background limited)")
             FileLogger.shared.log("Authorization: When In Use (background limited)")
         case .denied:
+            manager.stopMonitoringSignificantLocationChanges()
             AppLog.location.error("Authorization: Denied")
             FileLogger.shared.log("Authorization: Denied")
         case .restricted:
+            manager.stopMonitoringSignificantLocationChanges()
             AppLog.location.error("Authorization: Restricted")
             FileLogger.shared.log("Authorization: Restricted")
         case .notDetermined:
             AppLog.location.debug("Authorization: Not Determined")
             FileLogger.shared.log("Authorization: Not Determined")
         @unknown default:
+            manager.stopMonitoringSignificantLocationChanges()
             AppLog.location.error("Authorization: Unknown")
             FileLogger.shared.log("Authorization: Unknown")
         }
@@ -80,3 +84,4 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
         FileLogger.shared.log("Location error: \(error.localizedDescription)")
     }
 }
+

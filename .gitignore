@@ -1,0 +1,37 @@
+# Xcode user data and debugger state
+*.xccheckout
+*.xcscmblueprint
+
+# Xcode workspace and project user data
+**/*.xcodeproj/project.xcworkspace/xcuserdata/
+**/*.xcodeproj/xcuserdata/
+**/*.xcworkspace/xcuserdata/
+
+# Xcode shared debugger breakpoints and state
+**/*.xcodeproj/xcshareddata/xcdebugger/
+**/*.xcworkspace/xcshareddata/xcdebugger/
+
+# Derived data and build artifacts
+DerivedData/
+build/
+
+# Swift Package Manager
+.swiftpm/
+.build/
+
+# CocoaPods
+Pods/
+
+# Carthage
+Carthage/Build/
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+
+# User-specific
+*.swp
+*.swo
+.DS_Store

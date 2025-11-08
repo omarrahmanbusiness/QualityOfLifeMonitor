@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>We need background location to continue monitoring even when you’re not using the app.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>We use your location to monitor your daily movement patterns and improve insights.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>
