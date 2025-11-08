@@ -10,9 +10,22 @@
 		16F93F462EBC85EC00669166 /* QualityOfLifeMonitor.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = QualityOfLifeMonitor.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		1628A2C22EBF595B00F95AA1 /* Exceptions for "QualityOfLifeMonitor" folder in "QualityOfLifeMonitor" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 16F93F452EBC85EC00669166 /* QualityOfLifeMonitor */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		16F93F482EBC85EC00669166 /* QualityOfLifeMonitor */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				1628A2C22EBF595B00F95AA1 /* Exceptions for "QualityOfLifeMonitor" folder in "QualityOfLifeMonitor" target */,
+			);
 			path = QualityOfLifeMonitor;
 			sourceTree = "<group>";
 		};
@@ -257,6 +270,9 @@
 				DEVELOPMENT_TEAM = GBK9P9CQ37;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = QualityOfLifeMonitor/Info.plist;
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "We use your location in the background to track significant changes and record them for quality-of-life monitoring.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "We use your location to monitor your movement patterns and improve quality-of-life metrics while the app is in use.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -292,6 +308,9 @@
 				DEVELOPMENT_TEAM = GBK9P9CQ37;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = QualityOfLifeMonitor/Info.plist;
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "We use your location in the background to track significant changes and record them for quality-of-life monitoring.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "We use your location to monitor your movement patterns and improve quality-of-life metrics while the app is in use.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
