@@ -151,6 +151,9 @@ final class StatusViewModel: NSObject, ObservableObject, CLLocationManagerDelega
         manager.delegate = self
         lastStatus = manager.authorizationStatus
         locationSatisfied = (lastStatus == .authorizedAlways)
+        if (!locationSatisfied) {
+            manager.requestAlwaysAuthorization()
+        }
     }
 
     func refresh() {
