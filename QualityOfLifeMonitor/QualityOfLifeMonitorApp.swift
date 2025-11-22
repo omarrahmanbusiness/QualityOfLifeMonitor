@@ -6,9 +6,24 @@
 //
 
 import SwiftUI
+import BackgroundTasks
+
+// AppDelegate for background task registration
+class AppDelegate: NSObject, UIApplicationDelegate {
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
+    ) -> Bool {
+        // Register background sync task
+        SupabaseSyncManager.shared.registerBackgroundTask()
+        return true
+    }
+}
 
 @main
 struct QualityOfLifeMonitorApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+
     // Hold strong references so they live for the app lifetime
     private let locationPublisher = LocationPublisher()
     private lazy var locationManager = LocationManager(locationPublisher: locationPublisher)
@@ -33,6 +48,9 @@ struct QualityOfLifeMonitorApp: App {
             ScreenTimeManager.shared.configure(publisher: screenTimePublisher)
             // Start will be called after authorization is granted in StatusViewModel
         }
+
+        // Schedule daily Supabase sync
+        SupabaseSyncManager.shared.scheduleNextSync()
     }
 
     var body: some Scene {
