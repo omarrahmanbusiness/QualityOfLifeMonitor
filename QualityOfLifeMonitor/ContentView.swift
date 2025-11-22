@@ -277,14 +277,13 @@ final class StatusViewModel: NSObject, ObservableObject, CLLocationManagerDelega
     }
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        let previousStatus = lastStatus
         let status = manager.authorizationStatus
         lastStatus = status
         locationSatisfied = (status == .authorizedAlways)
 
-        // Mark that user has responded to authorization prompt
-        // This happens when transitioning from notDetermined to any other status
-        if previousStatus == .notDetermined && status != .notDetermined {
+        // Mark that user has responded when we see any determined status
+        // This definitively means user made a choice
+        if status != .notDetermined {
             UserDefaults.standard.set(true, forKey: Self.locationAuthRespondedKey)
         }
     }
