@@ -11,6 +11,7 @@ import Combine
 import CoreLocation
 import CoreData
 import HealthKit
+import FamilyControls
 
 struct StatusView: View {
     @Environment(\.scenePhase) private var scenePhase
@@ -71,6 +72,25 @@ struct StatusView: View {
                         }
                         .buttonStyle(.plain)
                         .disabled(viewModel.healthSatisfied)
+
+                        Button(action: {
+                            if !viewModel.screenTimeSatisfied {
+                                viewModel.requestScreenTimeAuthorization()
+                            }
+                        }) {
+                            HStack(alignment: .firstTextBaseline) {
+                                VStack(alignment: .leading) {
+                                    Text("Screen Time Access")
+                                    Text(viewModel.screenTimeStatusText)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Text(viewModel.screenTimeStatusEmoji)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(viewModel.screenTimeSatisfied)
                     }
                 }
                 .listStyle(.insetGrouped)
@@ -207,14 +227,16 @@ private struct HealthRemedyView: View {
 final class StatusViewModel: NSObject, ObservableObject, CLLocationManagerDelegate {
     @Published var locationSatisfied: Bool = false
     @Published var healthSatisfied: Bool = false
+    @Published var screenTimeSatisfied: Bool = false
     private var lastStatus: CLAuthorizationStatus = .notDetermined
     private let manager = CLLocationManager()
     private let healthStore = HKHealthStore()
 
-    var overallStatusEmoji: String { (locationSatisfied && healthSatisfied) ? "✅" : "❌" }
-    var overallStatusText: String { (locationSatisfied && healthSatisfied) ? "All set" : "Action required" }
+    var overallStatusEmoji: String { (locationSatisfied && healthSatisfied && screenTimeSatisfied) ? "✅" : "❌" }
+    var overallStatusText: String { (locationSatisfied && healthSatisfied && screenTimeSatisfied) ? "All set" : "Action required" }
     var locationStatusEmoji: String { locationSatisfied ? "✅" : "❌" }
     var healthStatusEmoji: String { healthSatisfied ? "✅" : "❌" }
+    var screenTimeStatusEmoji: String { screenTimeSatisfied ? "✅" : "❌" }
     var locationStatusText: String {
         switch lastStatus {
         case .authorizedAlways: return "Always"
@@ -231,6 +253,9 @@ final class StatusViewModel: NSObject, ObservableObject, CLLocationManagerDelega
         }
         return healthSatisfied ? "Authorized" : "Not Authorized"
     }
+    var screenTimeStatusText: String {
+        return screenTimeSatisfied ? "Authorized" : "Not Authorized"
+    }
 
     override init() {
         super.init()
@@ -246,6 +271,9 @@ final class StatusViewModel: NSObject, ObservableObject, CLLocationManagerDelega
         if !healthSatisfied && HKHealthStore.isHealthDataAvailable() {
             requestHealthAuthorization()
         }
+
+        // Check screen time authorization
+        checkScreenTimeAuthorization()
     }
 
     func refresh() {
@@ -253,6 +281,7 @@ final class StatusViewModel: NSObject, ObservableObject, CLLocationManagerDelega
         lastStatus = status
         locationSatisfied = (status == .authorizedAlways)
         checkHealthAuthorization()
+        checkScreenTimeAuthorization()
     }
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
@@ -283,6 +312,35 @@ final class StatusViewModel: NSObject, ObservableObject, CLLocationManagerDelega
         healthStore.requestAuthorization(toShare: nil, read: HealthKitManager.allTypesToRead) { [weak self] success, error in
             DispatchQueue.main.async {
                 self?.checkHealthAuthorization()
+            }
+        }
+    }
+
+    func checkScreenTimeAuthorization() {
+        if #available(iOS 15.0, *) {
+            screenTimeSatisfied = AuthorizationCenter.shared.authorizationStatus == .approved
+        } else {
+            screenTimeSatisfied = false
+        }
+    }
+
+    func requestScreenTimeAuthorization() {
+        if #available(iOS 15.0, *) {
+            Task {
+                do {
+                    try await AuthorizationCenter.shared.requestAuthorization(for: .individual)
+                    await MainActor.run {
+                        checkScreenTimeAuthorization()
+                        // Start monitoring after authorization
+                        if screenTimeSatisfied {
+                            ScreenTimeManager.shared.start()
+                        }
+                    }
+                } catch {
+                    await MainActor.run {
+                        screenTimeSatisfied = false
+                    }
+                }
             }
         }
     }
