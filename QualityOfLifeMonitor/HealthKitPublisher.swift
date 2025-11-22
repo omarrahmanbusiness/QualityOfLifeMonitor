@@ -72,11 +72,98 @@ class HealthKitPublisher {
                 entity.sourceName = sample.sourceRevision.source.name
                 entity.sourceBundleId = sample.sourceRevision.source.bundleIdentifier
                 entity.value = Double(sample.value)
-                entity.unit = "category"
+
+                // Map category values to meaningful unit strings
+                entity.unit = self.extractCategoryUnit(from: sample)
             }
 
             CoreDataManager.shared.save()
             AppLog.health.debug("Saved \(categorySamples.count) category samples to Core Data")
+        }
+    }
+
+    // MARK: - Category Value Mapping
+
+    /// Extract meaningful unit string from category sample
+    private func extractCategoryUnit(from sample: HKCategorySample) -> String {
+        let identifier = sample.categoryType.identifier
+
+        switch identifier {
+        case HKCategoryTypeIdentifier.sleepAnalysis.rawValue:
+            return mapSleepAnalysisValue(sample.value)
+
+        case HKCategoryTypeIdentifier.appleStandHour.rawValue:
+            return sample.value == HKCategoryValueAppleStandHour.stood.rawValue ? "stood" : "idle"
+
+        case HKCategoryTypeIdentifier.menstrualFlow.rawValue:
+            switch sample.value {
+            case HKCategoryValueMenstrualFlow.unspecified.rawValue: return "unspecified"
+            case HKCategoryValueMenstrualFlow.light.rawValue: return "light"
+            case HKCategoryValueMenstrualFlow.medium.rawValue: return "medium"
+            case HKCategoryValueMenstrualFlow.heavy.rawValue: return "heavy"
+            case HKCategoryValueMenstrualFlow.none.rawValue: return "none"
+            default: return "category"
+            }
+
+        case HKCategoryTypeIdentifier.ovulationTestResult.rawValue:
+            switch sample.value {
+            case HKCategoryValueOvulationTestResult.negative.rawValue: return "negative"
+            case HKCategoryValueOvulationTestResult.luteinizingHormoneSurge.rawValue: return "LH_surge"
+            case HKCategoryValueOvulationTestResult.indeterminate.rawValue: return "indeterminate"
+            case HKCategoryValueOvulationTestResult.estrogenSurge.rawValue: return "estrogen_surge"
+            default: return "category"
+            }
+
+        case HKCategoryTypeIdentifier.lowHeartRateEvent.rawValue:
+            return "low_hr_event"
+
+        case HKCategoryTypeIdentifier.highHeartRateEvent.rawValue:
+            return "high_hr_event"
+
+        case HKCategoryTypeIdentifier.irregularHeartRhythmEvent.rawValue:
+            return "irregular_rhythm"
+
+        case HKCategoryTypeIdentifier.audioExposureEvent.rawValue:
+            return "audio_exposure"
+
+        case HKCategoryTypeIdentifier.mindfulSession.rawValue:
+            return "mindful_minutes"
+
+        case HKCategoryTypeIdentifier.toothbrushingEvent.rawValue:
+            return "toothbrushing"
+
+        case HKCategoryTypeIdentifier.handwashingEvent.rawValue:
+            return "handwashing"
+
+        case HKCategoryTypeIdentifier.intermenstrualBleeding.rawValue:
+            return "intermenstrual"
+
+        case HKCategoryTypeIdentifier.sexualActivity.rawValue:
+            return "sexual_activity"
+
+        default:
+            return "category"
+        }
+    }
+
+    /// Map sleep analysis category value to sleep stage name
+    private func mapSleepAnalysisValue(_ value: Int) -> String {
+        // HKCategoryValueSleepAnalysis values
+        switch value {
+        case 0: // inBed
+            return "inBed"
+        case 1: // asleepUnspecified (deprecated in iOS 16, but still used)
+            return "asleep"
+        case 2: // awake
+            return "awake"
+        case 3: // asleepCore (iOS 16+)
+            return "asleepCore"
+        case 4: // asleepDeep (iOS 16+)
+            return "asleepDeep"
+        case 5: // asleepREM (iOS 16+)
+            return "asleepREM"
+        default:
+            return "sleep"
         }
     }
 
