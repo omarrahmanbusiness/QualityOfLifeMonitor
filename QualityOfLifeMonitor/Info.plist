@@ -2,8 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSHealthShareUsageDescription</key>
+	<string>We need access to your health data to monitor vital signs, activity levels, sleep patterns, and other health metrics for quality of life analysis and predictive health modeling.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>We may write health data to track your progress and insights.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>We need background location to continue monitoring even when you’re not using the app.</string>
+	<string>We need background location to continue monitoring even when you're not using the app.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>We use your location to monitor your daily movement patterns and improve insights.</string>
 	<key>UIBackgroundModes</key>

@@ -13,9 +13,17 @@ struct QualityOfLifeMonitorApp: App {
     private let locationPublisher = LocationPublisher()
     private lazy var locationManager = LocationManager(locationPublisher: locationPublisher)
 
+    // HealthKit components
+    private let healthKitPublisher = HealthKitPublisher()
+    private let healthKitManager = HealthKitManager.shared
+
     init() {
         // Start background location monitoring early in app lifecycle
         locationManager.start()
+
+        // Configure and start HealthKit monitoring
+        healthKitManager.configure(publisher: healthKitPublisher)
+        healthKitManager.start()
     }
 
     var body: some Scene {

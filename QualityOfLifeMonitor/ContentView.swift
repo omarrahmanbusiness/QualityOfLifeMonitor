@@ -10,6 +10,7 @@ import UIKit
 import Combine
 import CoreLocation
 import CoreData
+import HealthKit
 
 struct StatusView: View {
     @Environment(\.scenePhase) private var scenePhase
@@ -50,6 +51,25 @@ struct StatusView: View {
                         }
                         .buttonStyle(.plain)
                         .disabled(viewModel.locationSatisfied)
+
+                        Button(action: {
+                            if !viewModel.healthSatisfied {
+                                viewModel.requestHealthAuthorization()
+                            }
+                        }) {
+                            HStack(alignment: .firstTextBaseline) {
+                                VStack(alignment: .leading) {
+                                    Text("Health Access")
+                                    Text(viewModel.healthStatusText)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Text(viewModel.healthStatusEmoji)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(viewModel.healthSatisfied)
                     }
                 }
                 .listStyle(.insetGrouped)
@@ -129,12 +149,15 @@ private struct RemedyView: View {
 @MainActor
 final class StatusViewModel: NSObject, ObservableObject, CLLocationManagerDelegate {
     @Published var locationSatisfied: Bool = false
+    @Published var healthSatisfied: Bool = false
     private var lastStatus: CLAuthorizationStatus = .notDetermined
     private let manager = CLLocationManager()
+    private let healthStore = HKHealthStore()
 
-    var overallStatusEmoji: String { locationSatisfied ? "✅" : "❌" }
-    var overallStatusText: String { locationSatisfied ? "All set" : "Action required" }
+    var overallStatusEmoji: String { (locationSatisfied && healthSatisfied) ? "✅" : "❌" }
+    var overallStatusText: String { (locationSatisfied && healthSatisfied) ? "All set" : "Action required" }
     var locationStatusEmoji: String { locationSatisfied ? "✅" : "❌" }
+    var healthStatusEmoji: String { healthSatisfied ? "✅" : "❌" }
     var locationStatusText: String {
         switch lastStatus {
         case .authorizedAlways: return "Always"
@@ -145,6 +168,12 @@ final class StatusViewModel: NSObject, ObservableObject, CLLocationManagerDelega
         @unknown default: return "Unknown"
         }
     }
+    var healthStatusText: String {
+        guard HKHealthStore.isHealthDataAvailable() else {
+            return "Not Available"
+        }
+        return healthSatisfied ? "Authorized" : "Not Authorized"
+    }
 
     override init() {
         super.init()
@@ -154,18 +183,43 @@ final class StatusViewModel: NSObject, ObservableObject, CLLocationManagerDelega
         if (!locationSatisfied) {
             manager.requestAlwaysAuthorization()
         }
+        checkHealthAuthorization()
     }
 
     func refresh() {
         let status = manager.authorizationStatus
         lastStatus = status
         locationSatisfied = (status == .authorizedAlways)
+        checkHealthAuthorization()
     }
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         let status = manager.authorizationStatus
         lastStatus = status
         locationSatisfied = (status == .authorizedAlways)
+    }
+
+    func checkHealthAuthorization() {
+        guard HKHealthStore.isHealthDataAvailable() else {
+            healthSatisfied = false
+            return
+        }
+
+        // Check if we have authorization for at least heart rate (a key health type)
+        if let heartRateType = HKQuantityType.quantityType(forIdentifier: .heartRate) {
+            let status = healthStore.authorizationStatus(for: heartRateType)
+            healthSatisfied = (status == .sharingAuthorized)
+        }
+    }
+
+    func requestHealthAuthorization() {
+        guard HKHealthStore.isHealthDataAvailable() else { return }
+
+        healthStore.requestAuthorization(toShare: nil, read: HealthKitManager.allTypesToRead) { [weak self] success, error in
+            DispatchQueue.main.async {
+                self?.healthSatisfied = success
+            }
+        }
     }
 }
 
