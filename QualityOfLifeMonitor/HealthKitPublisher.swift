@@ -98,94 +98,140 @@ class HealthKitPublisher {
 
     /// Extract the appropriate value and unit from a quantity sample
     private func extractValueAndUnit(from sample: HKQuantitySample) -> (Double, String) {
-        let quantityType = sample.quantityType
+        let identifier = sample.quantityType.identifier
 
-        // Heart Rate and related
-        if quantityType.is(compatibleWith: HKUnit.count().unitDivided(by: .minute())) {
-            return (sample.quantity.doubleValue(for: HKUnit.count().unitDivided(by: .minute())), "count/min")
-        }
-
-        // Heart Rate Variability
-        if quantityType.is(compatibleWith: HKUnit.secondUnit(with: .milli)) {
-            return (sample.quantity.doubleValue(for: HKUnit.secondUnit(with: .milli)), "ms")
-        }
-
-        // Percentage (SpO2, body fat, etc.)
-        if quantityType.is(compatibleWith: HKUnit.percent()) {
-            return (sample.quantity.doubleValue(for: HKUnit.percent()) * 100, "%")
-        }
-
-        // Distance
-        if quantityType.is(compatibleWith: HKUnit.meter()) {
-            return (sample.quantity.doubleValue(for: HKUnit.meter()), "m")
-        }
-
-        // Energy
-        if quantityType.is(compatibleWith: HKUnit.kilocalorie()) {
-            return (sample.quantity.doubleValue(for: HKUnit.kilocalorie()), "kcal")
-        }
-
-        // Mass
-        if quantityType.is(compatibleWith: HKUnit.gramUnit(with: .kilo)) {
-            return (sample.quantity.doubleValue(for: HKUnit.gramUnit(with: .kilo)), "kg")
-        }
-
-        // Count (steps, flights, etc.)
-        if quantityType.is(compatibleWith: HKUnit.count()) {
+        // Map identifiers to their correct units
+        switch identifier {
+        // Count-based metrics
+        case HKQuantityTypeIdentifier.stepCount.rawValue,
+             HKQuantityTypeIdentifier.flightsClimbed.rawValue,
+             HKQuantityTypeIdentifier.pushCount.rawValue,
+             HKQuantityTypeIdentifier.swimmingStrokeCount.rawValue,
+             HKQuantityTypeIdentifier.numberOfTimesFallen.rawValue,
+             HKQuantityTypeIdentifier.inhalerUsage.rawValue,
+             HKQuantityTypeIdentifier.nikeFuel.rawValue:
             return (sample.quantity.doubleValue(for: HKUnit.count()), "count")
-        }
 
-        // Time/Duration
-        if quantityType.is(compatibleWith: HKUnit.minute()) {
+        // Heart rate (count/min)
+        case HKQuantityTypeIdentifier.heartRate.rawValue,
+             HKQuantityTypeIdentifier.restingHeartRate.rawValue,
+             HKQuantityTypeIdentifier.walkingHeartRateAverage.rawValue,
+             HKQuantityTypeIdentifier.respiratoryRate.rawValue:
+            return (sample.quantity.doubleValue(for: HKUnit.count().unitDivided(by: .minute())), "bpm")
+
+        // HRV (milliseconds)
+        case HKQuantityTypeIdentifier.heartRateVariabilitySDNN.rawValue:
+            return (sample.quantity.doubleValue(for: HKUnit.secondUnit(with: .milli)), "ms")
+
+        // Percentage-based metrics
+        case HKQuantityTypeIdentifier.oxygenSaturation.rawValue,
+             HKQuantityTypeIdentifier.bodyFatPercentage.rawValue,
+             HKQuantityTypeIdentifier.walkingAsymmetryPercentage.rawValue,
+             HKQuantityTypeIdentifier.walkingDoubleSupportPercentage.rawValue,
+             HKQuantityTypeIdentifier.appleWalkingSteadiness.rawValue,
+             HKQuantityTypeIdentifier.bloodAlcoholContent.rawValue:
+            return (sample.quantity.doubleValue(for: HKUnit.percent()) * 100, "%")
+
+        // Distance (meters)
+        case HKQuantityTypeIdentifier.distanceWalkingRunning.rawValue,
+             HKQuantityTypeIdentifier.distanceCycling.rawValue,
+             HKQuantityTypeIdentifier.distanceSwimming.rawValue,
+             HKQuantityTypeIdentifier.sixMinuteWalkTestDistance.rawValue,
+             HKQuantityTypeIdentifier.walkingStepLength.rawValue:
+            return (sample.quantity.doubleValue(for: HKUnit.meter()), "m")
+
+        // Energy (kcal)
+        case HKQuantityTypeIdentifier.activeEnergyBurned.rawValue,
+             HKQuantityTypeIdentifier.basalEnergyBurned.rawValue,
+             HKQuantityTypeIdentifier.dietaryEnergyConsumed.rawValue:
+            return (sample.quantity.doubleValue(for: HKUnit.kilocalorie()), "kcal")
+
+        // Time (minutes)
+        case HKQuantityTypeIdentifier.appleExerciseTime.rawValue,
+             HKQuantityTypeIdentifier.appleStandTime.rawValue,
+             HKQuantityTypeIdentifier.appleMoveTime.rawValue:
             return (sample.quantity.doubleValue(for: HKUnit.minute()), "min")
-        }
 
-        if quantityType.is(compatibleWith: HKUnit.second()) {
-            return (sample.quantity.doubleValue(for: HKUnit.second()), "s")
-        }
+        // Mass (kg)
+        case HKQuantityTypeIdentifier.bodyMass.rawValue,
+             HKQuantityTypeIdentifier.leanBodyMass.rawValue:
+            return (sample.quantity.doubleValue(for: HKUnit.gramUnit(with: .kilo)), "kg")
 
-        // Pressure (blood pressure)
-        if quantityType.is(compatibleWith: HKUnit.millimeterOfMercury()) {
+        // Height/length (cm)
+        case HKQuantityTypeIdentifier.height.rawValue,
+             HKQuantityTypeIdentifier.waistCircumference.rawValue:
+            return (sample.quantity.doubleValue(for: HKUnit.meterUnit(with: .centi)), "cm")
+
+        // BMI (dimensionless)
+        case HKQuantityTypeIdentifier.bodyMassIndex.rawValue:
+            return (sample.quantity.doubleValue(for: HKUnit.count()), "")
+
+        // Blood pressure (mmHg)
+        case HKQuantityTypeIdentifier.bloodPressureSystolic.rawValue,
+             HKQuantityTypeIdentifier.bloodPressureDiastolic.rawValue:
             return (sample.quantity.doubleValue(for: HKUnit.millimeterOfMercury()), "mmHg")
-        }
 
-        // Temperature
-        if quantityType.is(compatibleWith: HKUnit.degreeCelsius()) {
+        // Temperature (°C)
+        case HKQuantityTypeIdentifier.bodyTemperature.rawValue:
             return (sample.quantity.doubleValue(for: HKUnit.degreeCelsius()), "°C")
-        }
 
-        // Blood glucose
-        if quantityType.is(compatibleWith: HKUnit.gramUnit(with: .milli).unitDivided(by: .literUnit(with: .deci))) {
+        // Blood glucose (mg/dL)
+        case HKQuantityTypeIdentifier.bloodGlucose.rawValue:
             return (sample.quantity.doubleValue(for: HKUnit.gramUnit(with: .milli).unitDivided(by: .literUnit(with: .deci))), "mg/dL")
-        }
 
-        // Volume (water, etc.)
-        if quantityType.is(compatibleWith: HKUnit.literUnit(with: .milli)) {
-            return (sample.quantity.doubleValue(for: HKUnit.literUnit(with: .milli)), "mL")
-        }
-
-        // Speed
-        if quantityType.is(compatibleWith: HKUnit.meter().unitDivided(by: .second())) {
-            return (sample.quantity.doubleValue(for: HKUnit.meter().unitDivided(by: .second())), "m/s")
-        }
-
-        // Sound level (dB)
-        if quantityType.is(compatibleWith: HKUnit.decibelAWeightedSoundPressureLevel()) {
+        // Sound (dB)
+        case HKQuantityTypeIdentifier.environmentalAudioExposure.rawValue,
+             HKQuantityTypeIdentifier.headphoneAudioExposure.rawValue:
             return (sample.quantity.doubleValue(for: HKUnit.decibelAWeightedSoundPressureLevel()), "dB")
-        }
+
+        // Speed (m/s)
+        case HKQuantityTypeIdentifier.walkingSpeed.rawValue,
+             HKQuantityTypeIdentifier.stairAscentSpeed.rawValue,
+             HKQuantityTypeIdentifier.stairDescentSpeed.rawValue:
+            return (sample.quantity.doubleValue(for: HKUnit.meter().unitDivided(by: .second())), "m/s")
 
         // VO2 Max
-        if quantityType.is(compatibleWith: HKUnit.literUnit(with: .milli).unitDivided(by: HKUnit.gramUnit(with: .kilo).unitMultiplied(by: .minute()))) {
+        case HKQuantityTypeIdentifier.vo2Max.rawValue:
             return (sample.quantity.doubleValue(for: HKUnit.literUnit(with: .milli).unitDivided(by: HKUnit.gramUnit(with: .kilo).unitMultiplied(by: .minute()))), "mL/kg/min")
-        }
 
-        // Default: try count
-        if quantityType.is(compatibleWith: HKUnit.count()) {
-            return (sample.quantity.doubleValue(for: HKUnit.count()), "count")
-        }
+        // Nutrition (grams)
+        case HKQuantityTypeIdentifier.dietaryCarbohydrates.rawValue,
+             HKQuantityTypeIdentifier.dietaryFatTotal.rawValue,
+             HKQuantityTypeIdentifier.dietaryProtein.rawValue,
+             HKQuantityTypeIdentifier.dietarySugar.rawValue,
+             HKQuantityTypeIdentifier.dietaryFiber.rawValue,
+             HKQuantityTypeIdentifier.dietaryCholesterol.rawValue,
+             HKQuantityTypeIdentifier.dietarySodium.rawValue,
+             HKQuantityTypeIdentifier.dietaryCaffeine.rawValue:
+            return (sample.quantity.doubleValue(for: HKUnit.gram()), "g")
 
-        // Fallback
-        return (0, "unknown")
+        // Volume (mL)
+        case HKQuantityTypeIdentifier.dietaryWater.rawValue:
+            return (sample.quantity.doubleValue(for: HKUnit.literUnit(with: .milli)), "mL")
+
+        // Respiratory
+        case HKQuantityTypeIdentifier.peakExpiratoryFlowRate.rawValue:
+            return (sample.quantity.doubleValue(for: HKUnit.liter().unitDivided(by: .minute())), "L/min")
+
+        case HKQuantityTypeIdentifier.forcedVitalCapacity.rawValue,
+             HKQuantityTypeIdentifier.forcedExpiratoryVolume1.rawValue:
+            return (sample.quantity.doubleValue(for: HKUnit.liter()), "L")
+
+        // UV
+        case HKQuantityTypeIdentifier.uvExposure.rawValue:
+            return (sample.quantity.doubleValue(for: HKUnit.count()), "UV Index")
+
+        // Electrodermal
+        case HKQuantityTypeIdentifier.electrodermalActivity.rawValue:
+            return (sample.quantity.doubleValue(for: HKUnit.siemen()), "µS")
+
+        default:
+            // Fallback: try common units
+            if sample.quantityType.is(compatibleWith: HKUnit.count()) {
+                return (sample.quantity.doubleValue(for: HKUnit.count()), "count")
+            }
+            return (0, "unknown")
+        }
     }
 }
 
