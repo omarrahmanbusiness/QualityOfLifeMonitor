@@ -17,6 +17,9 @@ struct QualityOfLifeMonitorApp: App {
     private let healthKitPublisher = HealthKitPublisher()
     private let healthKitManager = HealthKitManager.shared
 
+    // Screen Time components
+    private let screenTimePublisher = ScreenTimePublisher()
+
     init() {
         // Start background location monitoring early in app lifecycle
         locationManager.start()
@@ -24,6 +27,12 @@ struct QualityOfLifeMonitorApp: App {
         // Configure and start HealthKit monitoring
         healthKitManager.configure(publisher: healthKitPublisher)
         healthKitManager.start()
+
+        // Configure Screen Time monitoring (iOS 15+)
+        if #available(iOS 15.0, *) {
+            ScreenTimeManager.shared.configure(publisher: screenTimePublisher)
+            // Start will be called after authorization is granted in StatusViewModel
+        }
     }
 
     var body: some Scene {
