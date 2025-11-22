@@ -16,7 +16,5 @@
 		<string>processing</string>
 		<string>fetch</string>
 	</array>
-	<key>NSFamilyControlsUsageDescription</key>
-	<string>We need access to your screen time data to monitor device usage patterns, app usage, and pickups for quality of life analysis and health predictions.</string>
 </dict>
 </plist>
