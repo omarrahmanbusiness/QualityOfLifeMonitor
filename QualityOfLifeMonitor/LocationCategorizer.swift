@@ -5,6 +5,7 @@
 //  Created by Omar Rahman on 22/11/2025.
 //
 
+import CoreData
 import CoreLocation
 import Foundation
 import os
@@ -43,6 +44,20 @@ struct CategorizedLocation {
     let address: String?
 }
 
+/// Context about a location derived from historical data and current state
+struct LocationContext {
+    let speed: Double
+    let altitude: Double
+    let timestamp: Date
+    let visitCount: Int
+    let totalDwellTime: TimeInterval
+    let averageVisitDuration: TimeInterval
+    let dayOfWeekPattern: [Int: Int] // weekday (1-7) -> visit count
+    let hourPattern: [Int: Int] // hour (0-23) -> visit count
+    let isFrequentLocation: Bool
+    let isStationary: Bool
+}
+
 class LocationCategorizer {
     static let shared = LocationCategorizer()
 
@@ -53,8 +68,12 @@ class LocationCategorizer {
     private let homeLocationKey = "homeLocation"
     private let workLocationKey = "workLocation"
 
-    // Threshold for matching user-defined locations (meters)
+    // Thresholds
     private let locationMatchThreshold: CLLocationDistance = 150
+    private let clusterRadius: CLLocationDistance = 100
+    private let stationarySpeedThreshold: Double = 0.5 // m/s
+    private let transitSpeedThreshold: Double = 2.0 // m/s (~7 km/h, walking pace)
+    private let frequentVisitThreshold: Int = 3
 
     // MARK: - User-Defined Locations
 
@@ -89,9 +108,23 @@ class LocationCategorizer {
     // MARK: - Categorization
 
     func categorize(location: CLLocation, completion: @escaping (CategorizedLocation) -> Void) {
-        // First check user-defined locations
+        // Build context from historical data
+        let context = buildLocationContext(for: location)
+
+        // Check if in transit based on speed
+        if context.speed > transitSpeedThreshold && !context.isStationary {
+            reverseGeocode(location: location) { placeName, address in
+                completion(CategorizedLocation(
+                    category: .transit,
+                    placeName: placeName,
+                    address: address
+                ))
+            }
+            return
+        }
+
+        // Check user-defined locations
         if let category = checkUserDefinedLocations(location) {
-            // Still get address info for display
             reverseGeocode(location: location) { placeName, address in
                 completion(CategorizedLocation(
                     category: category,
@@ -102,29 +135,79 @@ class LocationCategorizer {
             return
         }
 
-        // Use reverse geocoding to determine category
-        reverseGeocode(location: location) { [weak self] placeName, address in
-            guard let self = self else {
-                completion(CategorizedLocation(category: .other, placeName: placeName, address: address))
-                return
+        // Use reverse geocoding with rich context
+        reverseGeocodeWithContext(location: location, context: context, completion: completion)
+    }
+
+    private func buildLocationContext(for location: CLLocation) -> LocationContext {
+        let historicalLocations = fetchNearbyHistoricalLocations(location)
+
+        // Calculate visit patterns
+        var visitCount = 0
+        var totalDwellTime: TimeInterval = 0
+        var dayPattern: [Int: Int] = [:]
+        var hourPattern: [Int: Int] = [:]
+
+        let calendar = Calendar.current
+
+        // Group consecutive visits to calculate dwell time
+        var lastTimestamp: Date?
+        var currentDwell: TimeInterval = 0
+
+        for entity in historicalLocations.sorted(by: { ($0.timestamp ?? Date.distantPast) < ($1.timestamp ?? Date.distantPast) }) {
+            guard let timestamp = entity.timestamp else { continue }
+
+            visitCount += 1
+
+            // Day of week pattern (1 = Sunday, 7 = Saturday)
+            let weekday = calendar.component(.weekday, from: timestamp)
+            dayPattern[weekday, default: 0] += 1
+
+            // Hour pattern
+            let hour = calendar.component(.hour, from: timestamp)
+            hourPattern[hour, default: 0] += 1
+
+            // Calculate dwell time (time between consecutive visits at same location)
+            if let last = lastTimestamp {
+                let interval = timestamp.timeIntervalSince(last)
+                // If less than 2 hours between readings, consider it same visit
+                if interval < 7200 {
+                    currentDwell += interval
+                } else {
+                    totalDwellTime += currentDwell
+                    currentDwell = 0
+                }
             }
+            lastTimestamp = timestamp
+        }
+        totalDwellTime += currentDwell
 
-            let category = self.determineCategory(
-                placeName: placeName,
-                address: address,
-                timestamp: location.timestamp
-            )
+        let averageDuration = visitCount > 0 ? totalDwellTime / Double(visitCount) : 0
 
-            completion(CategorizedLocation(
-                category: category,
-                placeName: placeName,
-                address: address
-            ))
+        return LocationContext(
+            speed: location.speed >= 0 ? location.speed : 0,
+            altitude: location.altitude,
+            timestamp: location.timestamp,
+            visitCount: visitCount,
+            totalDwellTime: totalDwellTime,
+            averageVisitDuration: averageDuration,
+            dayOfWeekPattern: dayPattern,
+            hourPattern: hourPattern,
+            isFrequentLocation: visitCount >= frequentVisitThreshold,
+            isStationary: location.speed >= 0 && location.speed < stationarySpeedThreshold
+        )
+    }
+
+    private func fetchNearbyHistoricalLocations(_ location: CLLocation) -> [LocationEntity] {
+        let allLocations = CoreDataManager.shared.fetchAllLocations()
+
+        return allLocations.filter { entity in
+            let entityLocation = CLLocation(latitude: entity.latitude, longitude: entity.longitude)
+            return location.distance(from: entityLocation) < clusterRadius
         }
     }
 
     private func checkUserDefinedLocations(_ location: CLLocation) -> LocationCategory? {
-        // Check home
         if let homeCoord = getHomeLocation() {
             let homeLocation = CLLocation(latitude: homeCoord.latitude, longitude: homeCoord.longitude)
             if location.distance(from: homeLocation) < locationMatchThreshold {
@@ -132,7 +215,6 @@ class LocationCategorizer {
             }
         }
 
-        // Check work
         if let workCoord = getWorkLocation() {
             let workLocation = CLLocation(latitude: workCoord.latitude, longitude: workCoord.longitude)
             if location.distance(from: workLocation) < locationMatchThreshold {
@@ -166,68 +248,221 @@ class LocationCategorizer {
         }
     }
 
-    private func determineCategory(placeName: String?, address: String?, timestamp: Date) -> LocationCategory {
-        let combinedText = [placeName, address]
-            .compactMap { $0?.lowercased() }
-            .joined(separator: " ")
+    private func reverseGeocodeWithContext(location: CLLocation, context: LocationContext, completion: @escaping (CategorizedLocation) -> Void) {
+        geocoder.reverseGeocodeLocation(location) { [weak self] placemarks, error in
+            guard let self = self else {
+                completion(CategorizedLocation(category: .other, placeName: nil, address: nil))
+                return
+            }
 
-        // Healthcare keywords
-        let healthcareKeywords = ["hospital", "clinic", "medical", "doctor", "health", "pharmacy", "urgent care", "emergency"]
-        if healthcareKeywords.contains(where: { combinedText.contains($0) }) {
+            guard let placemark = placemarks?.first, error == nil else {
+                AppLog.location.error("Reverse geocoding failed: \(error?.localizedDescription ?? "Unknown error", privacy: .public)")
+                let category = self.inferCategoryFromContext(context: context, placemark: nil)
+                completion(CategorizedLocation(category: category, placeName: nil, address: nil))
+                return
+            }
+
+            let placeName = placemark.name
+            let address = [
+                placemark.subThoroughfare,
+                placemark.thoroughfare,
+                placemark.locality,
+                placemark.administrativeArea,
+                placemark.postalCode
+            ]
+            .compactMap { $0 }
+            .joined(separator: ", ")
+
+            let category = self.determineCategory(
+                placemark: placemark,
+                context: context
+            )
+
+            completion(CategorizedLocation(
+                category: category,
+                placeName: placeName,
+                address: address.isEmpty ? nil : address
+            ))
+        }
+    }
+
+    private func determineCategory(placemark: CLPlacemark, context: LocationContext) -> LocationCategory {
+        // Build searchable text from all available placemark data
+        let searchableText = buildSearchableText(from: placemark)
+
+        // 1. Check place type keywords first (highest confidence)
+        if let keywordCategory = matchKeywords(in: searchableText) {
+            return keywordCategory
+        }
+
+        // 2. Infer from behavioral patterns and context
+        return inferCategoryFromContext(context: context, placemark: placemark)
+    }
+
+    private func buildSearchableText(from placemark: CLPlacemark) -> String {
+        var components: [String] = []
+
+        // Primary identifiers
+        if let name = placemark.name { components.append(name) }
+        if let thoroughfare = placemark.thoroughfare { components.append(thoroughfare) }
+
+        // Areas of interest (e.g., "Golden Gate Park", "Financial District")
+        if let areasOfInterest = placemark.areasOfInterest {
+            components.append(contentsOf: areasOfInterest)
+        }
+
+        // Additional context
+        if let subLocality = placemark.subLocality { components.append(subLocality) }
+        if let locality = placemark.locality { components.append(locality) }
+
+        return components.joined(separator: " ").lowercased()
+    }
+
+    private func matchKeywords(in text: String) -> LocationCategory? {
+        // Healthcare - highest priority for health monitoring app
+        let healthcareKeywords = [
+            "hospital", "clinic", "medical", "doctor", "health", "pharmacy",
+            "urgent care", "emergency", "dental", "physician", "laboratory",
+            "diagnostic", "radiology", "cardiology", "therapy", "rehabilitation"
+        ]
+        if healthcareKeywords.contains(where: { text.contains($0) }) {
             return .healthcare
         }
 
-        // Shopping keywords
-        let shoppingKeywords = ["mall", "store", "shop", "market", "walmart", "target", "costco", "grocery", "supermarket"]
-        if shoppingKeywords.contains(where: { combinedText.contains($0) }) {
-            return .shopping
-        }
-
-        // Dining keywords
-        let diningKeywords = ["restaurant", "cafe", "coffee", "starbucks", "mcdonald", "food", "diner", "bistro", "bar", "pub"]
-        if diningKeywords.contains(where: { combinedText.contains($0) }) {
-            return .dining
-        }
-
-        // Fitness keywords
-        let fitnessKeywords = ["gym", "fitness", "yoga", "crossfit", "planet fitness", "24 hour", "athletic"]
-        if fitnessKeywords.contains(where: { combinedText.contains($0) }) {
+        // Fitness
+        let fitnessKeywords = [
+            "gym", "fitness", "yoga", "crossfit", "athletic", "sport",
+            "swimming pool", "tennis", "basketball", "recreation center",
+            "pilates", "martial arts", "boxing", "climbing"
+        ]
+        if fitnessKeywords.contains(where: { text.contains($0) }) {
             return .fitness
         }
 
-        // Leisure keywords
-        let leisureKeywords = ["theater", "cinema", "movie", "museum", "library", "park", "recreation", "entertainment"]
-        if leisureKeywords.contains(where: { combinedText.contains($0) }) {
+        // Shopping
+        let shoppingKeywords = [
+            "mall", "store", "shop", "market", "walmart", "target", "costco",
+            "grocery", "supermarket", "outlet", "plaza", "retail", "pharmacy",
+            "drugstore", "department store", "shopping center"
+        ]
+        if shoppingKeywords.contains(where: { text.contains($0) }) {
+            return .shopping
+        }
+
+        // Dining
+        let diningKeywords = [
+            "restaurant", "cafe", "coffee", "starbucks", "mcdonald", "food",
+            "diner", "bistro", "bar", "pub", "brewery", "bakery", "pizzeria",
+            "grill", "kitchen", "eatery", "tavern", "lounge"
+        ]
+        if diningKeywords.contains(where: { text.contains($0) }) {
+            return .dining
+        }
+
+        // Leisure/Entertainment
+        let leisureKeywords = [
+            "theater", "theatre", "cinema", "movie", "museum", "library",
+            "gallery", "entertainment", "arcade", "bowling", "amusement",
+            "zoo", "aquarium", "concert", "stadium", "arena"
+        ]
+        if leisureKeywords.contains(where: { text.contains($0) }) {
             return .leisure
         }
 
-        // Transit keywords
-        let transitKeywords = ["airport", "station", "terminal", "bus stop", "subway", "metro", "train"]
-        if transitKeywords.contains(where: { combinedText.contains($0) }) {
+        // Transit
+        let transitKeywords = [
+            "airport", "station", "terminal", "bus stop", "subway", "metro",
+            "train", "transit", "ferry", "port", "parking", "gas station",
+            "fuel", "rental car"
+        ]
+        if transitKeywords.contains(where: { text.contains($0) }) {
             return .transit
         }
 
-        // Outdoors keywords
-        let outdoorsKeywords = ["trail", "hiking", "nature", "beach", "lake", "mountain", "forest"]
-        if outdoorsKeywords.contains(where: { combinedText.contains($0) }) {
+        // Outdoors
+        let outdoorsKeywords = [
+            "park", "trail", "hiking", "nature", "beach", "lake", "mountain",
+            "forest", "garden", "reserve", "wilderness", "campground",
+            "playground", "field", "golf"
+        ]
+        if outdoorsKeywords.contains(where: { text.contains($0) }) {
             return .outdoors
         }
 
-        // Time-based heuristics for uncategorized locations
-        let hour = Calendar.current.component(.hour, from: timestamp)
-        let isWeekday = !Calendar.current.isDateInWeekend(timestamp)
+        return nil
+    }
 
-        // If it's a weekday during typical work hours, might be work
-        if isWeekday && hour >= 9 && hour <= 17 {
-            // Could be work, but we're not certain without user-defined location
-            return .other
+    private func inferCategoryFromContext(context: LocationContext, placemark: CLPlacemark?) -> LocationCategory {
+        let calendar = Calendar.current
+        let hour = calendar.component(.hour, from: context.timestamp)
+        let weekday = calendar.component(.weekday, from: context.timestamp)
+        let isWeekend = weekday == 1 || weekday == 7
+
+        // High confidence inferences based on behavioral patterns
+
+        // 1. Frequent location with long dwell times at night = likely home
+        if context.isFrequentLocation &&
+           context.averageVisitDuration > 3600 && // > 1 hour average
+           isNightTimePattern(context.hourPattern) {
+            return .home
         }
 
-        // Late night is likely home
-        if hour >= 22 || hour <= 6 {
-            return .other // Could be home but we're not certain
+        // 2. Frequent location with regular weekday daytime pattern = likely work
+        if context.isFrequentLocation &&
+           context.averageVisitDuration > 1800 && // > 30 min average
+           isWorkTimePattern(context.hourPattern, dayPattern: context.dayOfWeekPattern) {
+            return .work
+        }
+
+        // 3. Time-based heuristics for new/infrequent locations
+        if !context.isFrequentLocation {
+            // Late night (10pm - 6am) at stationary location
+            if (hour >= 22 || hour <= 6) && context.isStationary {
+                return .home
+            }
+
+            // Weekday business hours at stationary location
+            if !isWeekend && hour >= 9 && hour <= 17 && context.isStationary {
+                // Could be work, but without history we're uncertain
+                if context.totalDwellTime > 1800 { // Been here > 30 min
+                    return .work
+                }
+            }
+
+            // Weekend daytime
+            if isWeekend && hour >= 10 && hour <= 20 {
+                return .leisure
+            }
         }
 
         return .other
+    }
+
+    private func isNightTimePattern(_ hourPattern: [Int: Int]) -> Bool {
+        // Check if most visits occur during night/early morning (10pm - 8am)
+        let nightHours = [22, 23, 0, 1, 2, 3, 4, 5, 6, 7]
+        let nightVisits = nightHours.reduce(0) { $0 + (hourPattern[$1] ?? 0) }
+        let totalVisits = hourPattern.values.reduce(0, +)
+
+        guard totalVisits > 0 else { return false }
+        return Double(nightVisits) / Double(totalVisits) > 0.5
+    }
+
+    private func isWorkTimePattern(_ hourPattern: [Int: Int], dayPattern: [Int: Int]) -> Bool {
+        // Check if most visits occur during work hours (8am - 6pm) on weekdays
+        let workHours = Array(8...18)
+        let workVisits = workHours.reduce(0) { $0 + (hourPattern[$1] ?? 0) }
+        let totalHourVisits = hourPattern.values.reduce(0, +)
+
+        // Check weekday dominance (Mon=2 through Fri=6)
+        let weekdayVisits = (2...6).reduce(0) { $0 + (dayPattern[$1] ?? 0) }
+        let totalDayVisits = dayPattern.values.reduce(0, +)
+
+        guard totalHourVisits > 0, totalDayVisits > 0 else { return false }
+
+        let workHourRatio = Double(workVisits) / Double(totalHourVisits)
+        let weekdayRatio = Double(weekdayVisits) / Double(totalDayVisits)
+
+        return workHourRatio > 0.6 && weekdayRatio > 0.6
     }
 }
