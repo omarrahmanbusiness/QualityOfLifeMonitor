@@ -10,6 +10,7 @@ import DeviceActivity
 import FamilyControls
 import ManagedSettings
 import os
+import Combine
 
 @available(iOS 15.0, *)
 class ScreenTimeManager: ObservableObject {
