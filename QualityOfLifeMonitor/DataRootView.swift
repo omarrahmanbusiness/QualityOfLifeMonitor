@@ -11,6 +11,11 @@ public struct DataRootView: View {
                 } label: {
                     Label("Location", systemImage: "location.circle")
                 }
+                NavigationLink {
+                    HealthDataListView()
+                } label: {
+                    Label("Health", systemImage: "heart.fill")
+                }
             }
             .navigationTitle("Data")
         }

@@ -10,11 +10,13 @@ import UIKit
 import Combine
 import CoreLocation
 import CoreData
+import HealthKit
 
 struct StatusView: View {
     @Environment(\.scenePhase) private var scenePhase
     @StateObject private var viewModel = StatusViewModel()
     @State private var showRemedy = false
+    @State private var showHealthRemedy = false
 
     var body: some View {
         NavigationStack {
@@ -50,6 +52,25 @@ struct StatusView: View {
                         }
                         .buttonStyle(.plain)
                         .disabled(viewModel.locationSatisfied)
+
+                        Button(action: {
+                            if !viewModel.healthSatisfied {
+                                showHealthRemedy = true
+                            }
+                        }) {
+                            HStack(alignment: .firstTextBaseline) {
+                                VStack(alignment: .leading) {
+                                    Text("Health Access")
+                                    Text(viewModel.healthStatusText)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Text(viewModel.healthStatusEmoji)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(viewModel.healthSatisfied)
                     }
                 }
                 .listStyle(.insetGrouped)
@@ -59,6 +80,11 @@ struct StatusView: View {
             .navigationTitle("Status")
             .sheet(isPresented: $showRemedy) {
                 RemedyView(onDone: { showRemedy = false })
+            }
+            .sheet(isPresented: $showHealthRemedy) {
+                HealthRemedyView(onDone: { showHealthRemedy = false }, onRequest: {
+                    viewModel.requestHealthAuthorization()
+                })
             }
             .onAppear {
                 viewModel.refresh()
@@ -126,15 +152,69 @@ private struct RemedyView: View {
     }
 }
 
+private struct HealthRemedyView: View {
+    var onDone: () -> Void
+    var onRequest: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Grant Health Data Access")
+                        .font(.title2)
+                        .bold()
+                    Text("To monitor your health metrics, please grant access to HealthKit data:")
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("1. Tap \"Request Access\" below to show the HealthKit permission dialog.")
+                        Text("2. Review the health data types and tap \"Turn On All\" or select specific types.")
+                        Text("3. Tap \"Allow\" to grant access.")
+                        Text("")
+                        Text("If you've already denied access:")
+                        Text("1. Open the Settings app.")
+                        Text("2. Tap \"Privacy & Security\" > \"Health\".")
+                        Text("3. Find and select \"QualityOfLifeMonitor\".")
+                        Text("4. Enable the data types you want to share.")
+                    }
+                    .padding()
+                    .background(Color(.secondarySystemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+
+                    HStack {
+                        Button("Request Access") {
+                            onRequest()
+                            onDone()
+                        }
+                        .buttonStyle(.borderedProminent)
+
+                        Button("Go to Settings") {
+                            if let url = URL(string: UIApplication.openSettingsURLString) {
+                                UIApplication.shared.open(url)
+                            }
+                            onDone()
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+                .padding()
+            }
+            .navigationTitle("How to Fix")
+            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { onDone() } } }
+        }
+    }
+}
+
 @MainActor
 final class StatusViewModel: NSObject, ObservableObject, CLLocationManagerDelegate {
     @Published var locationSatisfied: Bool = false
+    @Published var healthSatisfied: Bool = false
     private var lastStatus: CLAuthorizationStatus = .notDetermined
     private let manager = CLLocationManager()
+    private let healthStore = HKHealthStore()
 
-    var overallStatusEmoji: String { locationSatisfied ? "✅" : "❌" }
-    var overallStatusText: String { locationSatisfied ? "All set" : "Action required" }
+    var overallStatusEmoji: String { (locationSatisfied && healthSatisfied) ? "✅" : "❌" }
+    var overallStatusText: String { (locationSatisfied && healthSatisfied) ? "All set" : "Action required" }
     var locationStatusEmoji: String { locationSatisfied ? "✅" : "❌" }
+    var healthStatusEmoji: String { healthSatisfied ? "✅" : "❌" }
     var locationStatusText: String {
         switch lastStatus {
         case .authorizedAlways: return "Always"
@@ -145,6 +225,12 @@ final class StatusViewModel: NSObject, ObservableObject, CLLocationManagerDelega
         @unknown default: return "Unknown"
         }
     }
+    var healthStatusText: String {
+        guard HKHealthStore.isHealthDataAvailable() else {
+            return "Not Available"
+        }
+        return healthSatisfied ? "Authorized" : "Not Authorized"
+    }
 
     override init() {
         super.init()
@@ -154,18 +240,51 @@ final class StatusViewModel: NSObject, ObservableObject, CLLocationManagerDelega
         if (!locationSatisfied) {
             manager.requestAlwaysAuthorization()
         }
+        checkHealthAuthorization()
+
+        // Auto-request health authorization if not yet determined
+        if !healthSatisfied && HKHealthStore.isHealthDataAvailable() {
+            requestHealthAuthorization()
+        }
     }
 
     func refresh() {
         let status = manager.authorizationStatus
         lastStatus = status
         locationSatisfied = (status == .authorizedAlways)
+        checkHealthAuthorization()
     }
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         let status = manager.authorizationStatus
         lastStatus = status
         locationSatisfied = (status == .authorizedAlways)
+    }
+
+    func checkHealthAuthorization() {
+        guard HKHealthStore.isHealthDataAvailable() else {
+            healthSatisfied = false
+            return
+        }
+
+        // For read-only access, we need to check request status since authorizationStatus
+        // only works for write permissions
+        healthStore.getRequestStatusForAuthorization(toShare: [], read: HealthKitManager.allTypesToRead) { [weak self] status, error in
+            DispatchQueue.main.async {
+                // If status is .unnecessary, authorization has already been determined
+                self?.healthSatisfied = (status == .unnecessary)
+            }
+        }
+    }
+
+    func requestHealthAuthorization() {
+        guard HKHealthStore.isHealthDataAvailable() else { return }
+
+        healthStore.requestAuthorization(toShare: nil, read: HealthKitManager.allTypesToRead) { [weak self] success, error in
+            DispatchQueue.main.async {
+                self?.checkHealthAuthorization()
+            }
+        }
     }
 }
 
