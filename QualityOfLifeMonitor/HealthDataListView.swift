@@ -240,5 +240,5 @@ struct HealthSampleRow: View {
 
 #Preview {
     HealthDataListView()
-        .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
+        .environment(\.managedObjectContext, CoreDataManager.shared.context)
 }
