@@ -16,6 +16,7 @@ struct StatusView: View {
     @Environment(\.scenePhase) private var scenePhase
     @StateObject private var viewModel = StatusViewModel()
     @State private var showRemedy = false
+    @State private var showHealthRemedy = false
 
     var body: some View {
         NavigationStack {
@@ -54,7 +55,7 @@ struct StatusView: View {
 
                         Button(action: {
                             if !viewModel.healthSatisfied {
-                                viewModel.requestHealthAuthorization()
+                                showHealthRemedy = true
                             }
                         }) {
                             HStack(alignment: .firstTextBaseline) {
@@ -79,6 +80,11 @@ struct StatusView: View {
             .navigationTitle("Status")
             .sheet(isPresented: $showRemedy) {
                 RemedyView(onDone: { showRemedy = false })
+            }
+            .sheet(isPresented: $showHealthRemedy) {
+                HealthRemedyView(onDone: { showHealthRemedy = false }, onRequest: {
+                    viewModel.requestHealthAuthorization()
+                })
             }
             .onAppear {
                 viewModel.refresh()
@@ -146,6 +152,57 @@ private struct RemedyView: View {
     }
 }
 
+private struct HealthRemedyView: View {
+    var onDone: () -> Void
+    var onRequest: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Grant Health Data Access")
+                        .font(.title2)
+                        .bold()
+                    Text("To monitor your health metrics, please grant access to HealthKit data:")
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("1. Tap \"Request Access\" below to show the HealthKit permission dialog.")
+                        Text("2. Review the health data types and tap \"Turn On All\" or select specific types.")
+                        Text("3. Tap \"Allow\" to grant access.")
+                        Text("")
+                        Text("If you've already denied access:")
+                        Text("1. Open the Settings app.")
+                        Text("2. Tap \"Privacy & Security\" > \"Health\".")
+                        Text("3. Find and select \"QualityOfLifeMonitor\".")
+                        Text("4. Enable the data types you want to share.")
+                    }
+                    .padding()
+                    .background(Color(.secondarySystemBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+
+                    HStack {
+                        Button("Request Access") {
+                            onRequest()
+                            onDone()
+                        }
+                        .buttonStyle(.borderedProminent)
+
+                        Button("Go to Settings") {
+                            if let url = URL(string: UIApplication.openSettingsURLString) {
+                                UIApplication.shared.open(url)
+                            }
+                            onDone()
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+                .padding()
+            }
+            .navigationTitle("How to Fix")
+            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { onDone() } } }
+        }
+    }
+}
+
 @MainActor
 final class StatusViewModel: NSObject, ObservableObject, CLLocationManagerDelegate {
     @Published var locationSatisfied: Bool = false
@@ -184,6 +241,11 @@ final class StatusViewModel: NSObject, ObservableObject, CLLocationManagerDelega
             manager.requestAlwaysAuthorization()
         }
         checkHealthAuthorization()
+
+        // Auto-request health authorization if not yet determined
+        if !healthSatisfied && HKHealthStore.isHealthDataAvailable() {
+            requestHealthAuthorization()
+        }
     }
 
     func refresh() {
