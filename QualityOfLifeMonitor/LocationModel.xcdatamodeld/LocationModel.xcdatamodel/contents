@@ -20,6 +20,11 @@
         <attribute name="speed" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES"/>
         <attribute name="timestamp" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
     </entity>
+    <entity name="HeartFailureEventEntity" representedClassName="HeartFailureEventEntity" syncable="YES" codeGenerationType="class">
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="notes" optional="YES" attributeType="String"/>
+        <attribute name="timestamp" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+    </entity>
     <entity name="ScreenTimeEntity" representedClassName="ScreenTimeEntity" syncable="YES" codeGenerationType="class">
         <attribute name="appBundleId" optional="YES" attributeType="String"/>
         <attribute name="appName" optional="YES" attributeType="String"/>

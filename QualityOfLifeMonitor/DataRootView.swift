@@ -21,6 +21,11 @@ public struct DataRootView: View {
                 } label: {
                     Label("Screen Time", systemImage: "hourglass")
                 }
+                NavigationLink {
+                    HeartFailureEventsView()
+                } label: {
+                    Label("Heart Failure Events", systemImage: "heart.text.clipboard")
+                }
             }
             .navigationTitle("Data")
         }
