@@ -16,5 +16,9 @@
 		<string>processing</string>
 		<string>fetch</string>
 	</array>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.qualityoflifemonitor.dailysync</string>
+	</array>
 </dict>
 </plist>
