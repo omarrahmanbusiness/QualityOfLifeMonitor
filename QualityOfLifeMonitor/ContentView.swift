@@ -267,10 +267,13 @@ final class StatusViewModel: NSObject, ObservableObject, CLLocationManagerDelega
             return
         }
 
-        // Check if we have authorization for at least heart rate (a key health type)
-        if let heartRateType = HKQuantityType.quantityType(forIdentifier: .heartRate) {
-            let status = healthStore.authorizationStatus(for: heartRateType)
-            healthSatisfied = (status == .sharingAuthorized)
+        // For read-only access, we need to check request status since authorizationStatus
+        // only works for write permissions
+        healthStore.getRequestStatusForAuthorization(toShare: [], read: HealthKitManager.allTypesToRead) { [weak self] status, error in
+            DispatchQueue.main.async {
+                // If status is .unnecessary, authorization has already been determined
+                self?.healthSatisfied = (status == .unnecessary)
+            }
         }
     }
 
@@ -279,7 +282,7 @@ final class StatusViewModel: NSObject, ObservableObject, CLLocationManagerDelega
 
         healthStore.requestAuthorization(toShare: nil, read: HealthKitManager.allTypesToRead) { [weak self] success, error in
             DispatchQueue.main.async {
-                self?.healthSatisfied = success
+                self?.checkHealthAuthorization()
             }
         }
     }
