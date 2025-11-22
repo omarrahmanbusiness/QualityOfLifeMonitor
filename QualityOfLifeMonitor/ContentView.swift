@@ -211,6 +211,9 @@ final class StatusViewModel: NSObject, ObservableObject, CLLocationManagerDelega
     private let manager = CLLocationManager()
     private let healthStore = HKHealthStore()
 
+    // Track if user has responded to location authorization prompt
+    private static let locationAuthRespondedKey = "locationAuthorizationResponded"
+
     var overallStatusEmoji: String { (locationSatisfied && healthSatisfied) ? "✅" : "❌" }
     var overallStatusText: String { (locationSatisfied && healthSatisfied) ? "All set" : "Action required" }
     var locationStatusEmoji: String { locationSatisfied ? "✅" : "❌" }
@@ -218,12 +221,23 @@ final class StatusViewModel: NSObject, ObservableObject, CLLocationManagerDelega
     var locationStatusText: String {
         switch lastStatus {
         case .authorizedAlways: return "Always"
-        case .authorizedWhenInUse: return "While Using"
+        case .authorizedWhenInUse:
+            // If user has already responded to the prompt, they need to upgrade manually
+            if UserDefaults.standard.bool(forKey: Self.locationAuthRespondedKey) {
+                return "While Using – Tap to upgrade"
+            }
+            return "While Using"
         case .denied: return "Denied"
         case .restricted: return "Restricted"
         case .notDetermined: return "Not Determined"
         @unknown default: return "Unknown"
         }
+    }
+
+    /// Whether user needs to manually upgrade from "While Using" to "Always"
+    var needsLocationUpgrade: Bool {
+        let hasResponded = UserDefaults.standard.bool(forKey: Self.locationAuthRespondedKey)
+        return hasResponded && lastStatus == .authorizedWhenInUse
     }
     var healthStatusText: String {
         guard HKHealthStore.isHealthDataAvailable() else {
@@ -237,6 +251,13 @@ final class StatusViewModel: NSObject, ObservableObject, CLLocationManagerDelega
         manager.delegate = self
         lastStatus = manager.authorizationStatus
         locationSatisfied = (lastStatus == .authorizedAlways)
+
+        // If status is already determined, mark that user has responded
+        // (they may have responded in a previous session)
+        if lastStatus != .notDetermined {
+            UserDefaults.standard.set(true, forKey: Self.locationAuthRespondedKey)
+        }
+
         if (!locationSatisfied) {
             manager.requestAlwaysAuthorization()
         }
@@ -256,9 +277,16 @@ final class StatusViewModel: NSObject, ObservableObject, CLLocationManagerDelega
     }
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        let previousStatus = lastStatus
         let status = manager.authorizationStatus
         lastStatus = status
         locationSatisfied = (status == .authorizedAlways)
+
+        // Mark that user has responded to authorization prompt
+        // This happens when transitioning from notDetermined to any other status
+        if previousStatus == .notDetermined && status != .notDetermined {
+            UserDefaults.standard.set(true, forKey: Self.locationAuthRespondedKey)
+        }
     }
 
     func checkHealthAuthorization() {
