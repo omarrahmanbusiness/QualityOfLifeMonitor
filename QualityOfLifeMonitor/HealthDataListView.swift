@@ -10,6 +10,7 @@ import CoreData
 
 struct HealthDataListView: View {
     @Environment(\.managedObjectContext) private var viewContext
+    @ObservedObject private var healthKitManager = HealthKitManager.shared
 
     @FetchRequest(
         sortDescriptors: [NSSortDescriptor(keyPath: \HealthSampleEntity.startDate, ascending: false)],
@@ -46,7 +47,26 @@ struct HealthDataListView: View {
                 .padding(.vertical, 8)
             }
 
-            if samples.isEmpty {
+            if healthKitManager.isLoadingInitialData {
+                VStack(spacing: 16) {
+                    ProgressView(value: healthKitManager.loadingProgress) {
+                        Text("Loading Health Data...")
+                            .font(.headline)
+                    } currentValueLabel: {
+                        Text("\(Int(healthKitManager.loadingProgress * 100))%")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .progressViewStyle(.linear)
+                    .padding(.horizontal, 40)
+
+                    Text("Importing your health data from the last 30 days")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if samples.isEmpty {
                 ContentUnavailableView(
                     "No Health Data",
                     systemImage: "heart.text.square",

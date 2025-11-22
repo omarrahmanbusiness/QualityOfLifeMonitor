@@ -8,11 +8,18 @@
 import HealthKit
 import os
 
-class HealthKitManager {
+class HealthKitManager: ObservableObject {
     static let shared = HealthKitManager()
 
     private let healthStore = HKHealthStore()
     private var publisher: HealthKitPublisher?
+
+    // MARK: - Loading State
+    @Published var isLoadingInitialData: Bool = false
+    @Published var loadingProgress: Double = 0.0
+    private var totalQueries: Int = 0
+    private var completedQueries: Int = 0
+    private let loadingQueue = DispatchQueue(label: "com.healthkit.loading")
 
     // MARK: - Health Data Types to Read
 
@@ -189,19 +196,47 @@ class HealthKitManager {
         AppLog.health.info("Fetching historical health data from \(startDate) to \(endDate)")
         FileLogger.shared.log("Fetching historical health data from \(startDate) to \(endDate)")
 
+        // Initialize loading state
+        loadingQueue.sync {
+            totalQueries = Self.quantityTypes.count + Self.categoryTypes.count
+            completedQueries = 0
+        }
+
+        DispatchQueue.main.async {
+            self.isLoadingInitialData = true
+            self.loadingProgress = 0.0
+        }
+
         // Fetch quantity samples
         for quantityType in Self.quantityTypes {
-            fetchQuantitySamples(for: quantityType, from: startDate, to: endDate)
+            fetchQuantitySamples(for: quantityType, from: startDate, to: endDate, trackProgress: true)
         }
 
         // Fetch category samples
         for categoryType in Self.categoryTypes {
-            fetchCategorySamples(for: categoryType, from: startDate, to: endDate)
+            fetchCategorySamples(for: categoryType, from: startDate, to: endDate, trackProgress: true)
+        }
+    }
+
+    private func markQueryCompleted() {
+        loadingQueue.sync {
+            completedQueries += 1
+            let progress = Double(completedQueries) / Double(totalQueries)
+            let isComplete = completedQueries >= totalQueries
+
+            DispatchQueue.main.async {
+                self.loadingProgress = progress
+                if isComplete {
+                    self.isLoadingInitialData = false
+                    AppLog.health.info("Completed loading all historical health data")
+                    FileLogger.shared.log("Completed loading all historical health data")
+                }
+            }
         }
     }
 
     /// Fetch quantity samples for a specific type
-    private func fetchQuantitySamples(for quantityType: HKQuantityType, from startDate: Date, to endDate: Date) {
+    private func fetchQuantitySamples(for quantityType: HKQuantityType, from startDate: Date, to endDate: Date, trackProgress: Bool = false) {
         let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: .strictStartDate)
         let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
 
@@ -211,6 +246,12 @@ class HealthKitManager {
             limit: HKObjectQueryNoLimit,
             sortDescriptors: [sortDescriptor]
         ) { [weak self] _, samples, error in
+            defer {
+                if trackProgress {
+                    self?.markQueryCompleted()
+                }
+            }
+
             if let error = error {
                 AppLog.health.error("Failed to fetch \(quantityType.identifier): \(error.localizedDescription, privacy: .public)")
                 return
@@ -227,7 +268,7 @@ class HealthKitManager {
     }
 
     /// Fetch category samples for a specific type
-    private func fetchCategorySamples(for categoryType: HKCategoryType, from startDate: Date, to endDate: Date) {
+    private func fetchCategorySamples(for categoryType: HKCategoryType, from startDate: Date, to endDate: Date, trackProgress: Bool = false) {
         let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: .strictStartDate)
         let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
 
@@ -237,6 +278,12 @@ class HealthKitManager {
             limit: HKObjectQueryNoLimit,
             sortDescriptors: [sortDescriptor]
         ) { [weak self] _, samples, error in
+            defer {
+                if trackProgress {
+                    self?.markQueryCompleted()
+                }
+            }
+
             if let error = error {
                 AppLog.health.error("Failed to fetch \(categoryType.identifier): \(error.localizedDescription, privacy: .public)")
                 return
