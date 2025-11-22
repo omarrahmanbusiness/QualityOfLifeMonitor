@@ -11,6 +11,7 @@ import Combine
 import CoreLocation
 import CoreData
 import HealthKit
+import FamilyControls
 
 struct StatusView: View {
     @Environment(\.scenePhase) private var scenePhase
@@ -316,15 +317,31 @@ final class StatusViewModel: NSObject, ObservableObject, CLLocationManagerDelega
     }
 
     func checkScreenTimeAuthorization() {
-        // No special authorization needed - uses UIApplication notifications
-        screenTimeSatisfied = true
-        ScreenTimeManager.shared.start()
+        if #available(iOS 15.0, *) {
+            screenTimeSatisfied = AuthorizationCenter.shared.authorizationStatus == .approved
+        } else {
+            screenTimeSatisfied = false
+        }
     }
 
     func requestScreenTimeAuthorization() {
-        // No authorization needed - automatically start monitoring
-        screenTimeSatisfied = true
-        ScreenTimeManager.shared.start()
+        if #available(iOS 15.0, *) {
+            Task {
+                do {
+                    try await AuthorizationCenter.shared.requestAuthorization(for: .individual)
+                    await MainActor.run {
+                        checkScreenTimeAuthorization()
+                        if screenTimeSatisfied {
+                            ScreenTimeManager.shared.start()
+                        }
+                    }
+                } catch {
+                    await MainActor.run {
+                        screenTimeSatisfied = false
+                    }
+                }
+            }
+        }
     }
 }
 

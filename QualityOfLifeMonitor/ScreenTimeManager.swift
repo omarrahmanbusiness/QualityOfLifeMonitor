@@ -6,193 +6,130 @@
 //
 
 import Foundation
-import UIKit
+import DeviceActivity
+import FamilyControls
+import ManagedSettings
 import os
 
-/// Screen Time Manager that tracks device usage without FamilyControls
-/// Uses UIApplication lifecycle notifications to detect unlocks and app usage
+@available(iOS 15.0, *)
 class ScreenTimeManager: ObservableObject {
     static let shared = ScreenTimeManager()
 
+    private let center = AuthorizationCenter.shared
     private var publisher: ScreenTimePublisher?
-    private var lastUnlockTime: Date?
-    private var dailyPickupCount: Int32 = 0
-    private var currentSessionStart: Date?
 
-    @Published var isAuthorized: Bool = true // Always authorized (no special entitlement needed)
+    @Published var isAuthorized: Bool = false
 
     private init() {
-        setupNotifications()
+        checkAuthorizationStatus()
     }
 
     func configure(publisher: ScreenTimePublisher) {
         self.publisher = publisher
     }
 
-    // MARK: - Notifications Setup
+    // MARK: - Authorization
 
-    private func setupNotifications() {
-        let notificationCenter = NotificationCenter.default
-
-        // App became active (device unlocked or app foregrounded)
-        notificationCenter.addObserver(
-            self,
-            selector: #selector(appDidBecomeActive),
-            name: UIApplication.didBecomeActiveNotification,
-            object: nil
-        )
-
-        // App will resign active (device locked or app backgrounded)
-        notificationCenter.addObserver(
-            self,
-            selector: #selector(appWillResignActive),
-            name: UIApplication.willResignActiveNotification,
-            object: nil
-        )
-
-        // App entered background
-        notificationCenter.addObserver(
-            self,
-            selector: #selector(appDidEnterBackground),
-            name: UIApplication.didEnterBackgroundNotification,
-            object: nil
-        )
-
-        // App will terminate
-        notificationCenter.addObserver(
-            self,
-            selector: #selector(appWillTerminate),
-            name: UIApplication.willTerminateNotification,
-            object: nil
-        )
-
-        // Protected data became available (device was unlocked)
-        notificationCenter.addObserver(
-            self,
-            selector: #selector(protectedDataDidBecomeAvailable),
-            name: UIApplication.protectedDataDidBecomeAvailableNotification,
-            object: nil
-        )
+    func checkAuthorizationStatus() {
+        isAuthorized = center.authorizationStatus == .approved
     }
 
-    // MARK: - Notification Handlers
-
-    @objc private func appDidBecomeActive() {
-        let now = Date()
-        currentSessionStart = now
-
-        // Check if this is a new unlock (not just app switch)
-        if lastUnlockTime == nil || now.timeIntervalSince(lastUnlockTime!) > 60 {
-            // Record pickup
-            dailyPickupCount += 1
-            lastUnlockTime = now
-
-            publisher?.publishPickup(date: now, unlockTime: now)
-
-            AppLog.screenTime.debug("Device pickup recorded at \(now)")
+    func requestAuthorization() async -> Bool {
+        do {
+            try await center.requestAuthorization(for: .individual)
+            await MainActor.run {
+                isAuthorized = center.authorizationStatus == .approved
+            }
+            AppLog.screenTime.info("Screen Time authorization granted")
+            FileLogger.shared.log("Screen Time authorization granted")
+            return true
+        } catch {
+            AppLog.screenTime.error("Screen Time authorization failed: \(error.localizedDescription, privacy: .public)")
+            FileLogger.shared.log("Screen Time authorization failed: \(error.localizedDescription)")
+            await MainActor.run {
+                isAuthorized = false
+            }
+            return false
         }
     }
 
-    @objc private func appWillResignActive() {
-        recordSessionDuration()
-    }
+    // MARK: - Data Collection
 
-    @objc private func appDidEnterBackground() {
-        recordSessionDuration()
-        saveDailySummary()
-    }
-
-    @objc private func appWillTerminate() {
-        recordSessionDuration()
-        saveDailySummary()
-    }
-
-    @objc private func protectedDataDidBecomeAvailable() {
-        // Device was unlocked
-        let now = Date()
-
-        // Only count as pickup if significant time has passed
-        if lastUnlockTime == nil || now.timeIntervalSince(lastUnlockTime!) > 300 {
-            dailyPickupCount += 1
-            lastUnlockTime = now
-
-            publisher?.publishPickup(date: now, unlockTime: now)
-
-            AppLog.screenTime.info("Device unlocked - pickup recorded")
-            FileLogger.shared.log("Device unlocked - pickup recorded")
+    /// Start monitoring screen time data
+    func start() {
+        guard isAuthorized else {
+            AppLog.screenTime.warning("Screen Time not authorized - skipping monitoring")
+            FileLogger.shared.log("Screen Time not authorized - skipping monitoring")
+            return
         }
+
+        // Fetch historical data
+        fetchScreenTimeData()
+
+        // Set up device activity monitoring
+        setupDeviceActivityMonitoring()
+
+        AppLog.screenTime.info("Screen Time monitoring started")
+        FileLogger.shared.log("Screen Time monitoring started")
     }
 
-    // MARK: - Session Tracking
+    /// Fetch screen time data and publish to CoreData
+    func fetchScreenTimeData() {
+        guard isAuthorized else { return }
 
-    private func recordSessionDuration() {
-        guard let sessionStart = currentSessionStart else { return }
+        // Collect daily summary data for the past 30 days
+        let calendar = Calendar.current
+        let endDate = Date()
+        guard let startDate = calendar.date(byAdding: .day, value: -30, to: endDate) else { return }
 
-        let sessionDuration = Date().timeIntervalSince(sessionStart)
+        // Create daily records for tracking
+        var currentDate = startDate
+        while currentDate <= endDate {
+            let dayStart = calendar.startOfDay(for: currentDate)
+            guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else { break }
 
-        // Only record sessions longer than 1 second
-        if sessionDuration > 1 {
-            let bundleId = Bundle.main.bundleIdentifier ?? "unknown"
-            let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "QualityOfLifeMonitor"
-
-            publisher?.publishAppUsage(
-                date: sessionStart,
-                appBundleId: bundleId,
-                appName: appName,
-                category: "Health & Fitness",
-                duration: sessionDuration
+            // Create a daily summary record
+            // Note: DeviceActivityReport provides detailed data, but we store aggregated summaries
+            publisher?.publishDailySummary(
+                date: dayStart,
+                totalScreenTime: 0, // Will be updated by DeviceActivityReport
+                numberOfPickups: 0,
+                firstUnlock: nil
             )
 
-            AppLog.screenTime.debug("Session recorded: \(sessionDuration)s")
+            currentDate = dayEnd
         }
 
-        currentSessionStart = nil
+        AppLog.screenTime.info("Initialized screen time data records for past 30 days")
     }
 
-    private func saveDailySummary() {
-        let today = Calendar.current.startOfDay(for: Date())
+    /// Set up device activity monitoring schedule
+    private func setupDeviceActivityMonitoring() {
+        let center = DeviceActivityCenter()
 
-        // Get total duration for today from stored app usage
-        let todayUsage = CoreDataManager.shared.fetchScreenTimeData(ofType: "appUsage", limit: 1000)
-            .filter { entity in
-                guard let date = entity.date else { return false }
-                return Calendar.current.isDate(date, inSameDayAs: today)
-            }
-            .reduce(0.0) { $0 + $1.duration }
-
-        publisher?.publishDailySummary(
-            date: today,
-            totalScreenTime: todayUsage,
-            numberOfPickups: dailyPickupCount,
-            firstUnlock: lastUnlockTime
+        // Create a schedule for monitoring
+        let schedule = DeviceActivitySchedule(
+            intervalStart: DateComponents(hour: 0, minute: 0),
+            intervalEnd: DateComponents(hour: 23, minute: 59),
+            repeats: true
         )
+
+        do {
+            try center.startMonitoring(
+                .daily,
+                during: schedule
+            )
+            AppLog.screenTime.info("Device activity monitoring started")
+        } catch {
+            AppLog.screenTime.error("Failed to start device activity monitoring: \(error.localizedDescription, privacy: .public)")
+        }
     }
 
-    // MARK: - Start Monitoring
+    /// Fetch app category usage breakdown
+    func fetchCategoryUsage(for date: Date) {
+        guard isAuthorized else { return }
 
-    func start() {
-        // Reset daily counters at start
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-
-        // Load existing pickup count for today
-        let existingPickups = CoreDataManager.shared.fetchScreenTimeData(ofType: "pickup", limit: 1000)
-            .filter { entity in
-                guard let date = entity.date else { return false }
-                return calendar.isDate(date, inSameDayAs: today)
-            }
-            .count
-
-        dailyPickupCount = Int32(existingPickups)
-
-        // Initialize category usage records for today
-        initializeCategoryRecords(for: today)
-
-        AppLog.screenTime.info("Screen Time monitoring started (without FamilyControls)")
-        FileLogger.shared.log("Screen Time monitoring started (without FamilyControls)")
-    }
-
-    private func initializeCategoryRecords(for date: Date) {
+        // Categories we track
         let categories = [
             "Social",
             "Entertainment",
@@ -207,39 +144,20 @@ class ScreenTimeManager: ObservableObject {
             "Other"
         ]
 
+        // Create category records (actual data comes from DeviceActivityReport)
         for category in categories {
             publisher?.publishCategoryUsage(
                 date: date,
                 category: category,
-                duration: 0
+                duration: 0 // Will be populated by DeviceActivityReport
             )
         }
     }
+}
 
-    // MARK: - Manual Recording
-
-    /// Call this to manually record screen time data (for future FamilyControls integration)
-    func recordScreenTime(totalMinutes: Double, pickups: Int32, for date: Date) {
-        publisher?.publishDailySummary(
-            date: date,
-            totalScreenTime: totalMinutes * 60,
-            numberOfPickups: pickups,
-            firstUnlock: nil
-        )
-    }
-
-    /// Record category usage manually
-    func recordCategoryUsage(category: String, minutes: Double, for date: Date) {
-        publisher?.publishCategoryUsage(
-            date: date,
-            category: category,
-            duration: minutes * 60
-        )
-    }
-
-    deinit {
-        NotificationCenter.default.removeObserver(self)
-    }
+// MARK: - Device Activity Name Extension
+extension DeviceActivityName {
+    static let daily = Self("daily")
 }
 
 // MARK: - Logging Extension
