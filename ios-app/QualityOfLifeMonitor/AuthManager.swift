@@ -176,6 +176,30 @@ final class AuthManager: ObservableObject {
         _ = try await URLSession.shared.data(for: request)
     }
 
+    /// Get clinician_id from invite code
+    private func getClinicianIdFromInviteCode(_ code: String) async throws -> String? {
+        let url = URL(string: "\(supabaseURL)/rest/v1/invite_codes?code=eq.\(code)&select=clinician_id")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue(supabaseAnonKey, forHTTPHeaderField: "apikey")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse,
+              (200...299).contains(httpResponse.statusCode) else {
+            return nil
+        }
+
+        if let inviteCodes = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]],
+           let inviteCode = inviteCodes.first,
+           let clinicianId = inviteCode["clinician_id"] as? String {
+            return clinicianId
+        }
+
+        return nil
+    }
+
     /// Sign up a new user
     func signUp(email: String, password: String, inviteCode: String) async throws {
         await MainActor.run {
@@ -234,14 +258,18 @@ final class AuthManager: ObservableObject {
            let refreshToken = authResponse.refresh_token,
            let expiresIn = authResponse.expires_in {
 
+            // Get clinician_id from invite code before using it
+            let clinicianId = try await getClinicianIdFromInviteCode(inviteCode)
+
             // Use the invite code
             try await useInviteCode(inviteCode)
 
-            // Create patient record linked to this user
+            // Create patient record linked to this user and clinician
             try await createPatientRecord(
                 userId: authResponse.user.id,
                 email: email,
-                accessToken: accessToken
+                accessToken: accessToken,
+                clinicianId: clinicianId
             )
 
             // Store session
@@ -262,6 +290,9 @@ final class AuthManager: ObservableObject {
             let userId = signUpData.id ?? signUpData.user?.id
 
             if let userId = userId {
+                // Get clinician_id from invite code before using it
+                let clinicianId = try await getClinicianIdFromInviteCode(inviteCode)
+
                 // Use the invite code
                 try await useInviteCode(inviteCode)
 
@@ -273,7 +304,8 @@ final class AuthManager: ObservableObject {
                     try await createPatientRecord(
                         userId: userId,
                         email: email,
-                        accessToken: accessToken
+                        accessToken: accessToken,
+                        clinicianId: clinicianId
                     )
 
                     let user = User(id: userId, email: email)
@@ -514,7 +546,7 @@ final class AuthManager: ObservableObject {
     // MARK: - Patient Record
 
     /// Create a patient record for the new user
-    private func createPatientRecord(userId: String, email: String, accessToken: String) async throws {
+    private func createPatientRecord(userId: String, email: String, accessToken: String, clinicianId: String? = nil) async throws {
         let deviceId = getDeviceId()
 
         let url = URL(string: "\(supabaseURL)/rest/v1/patients")!
@@ -525,11 +557,17 @@ final class AuthManager: ObservableObject {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("return=representation", forHTTPHeaderField: "Prefer")
 
-        let patientData: [String: Any] = [
+        var patientData: [String: Any] = [
             "device_id": deviceId,
             "user_id": userId,
             "email": email
         ]
+
+        // Link patient to clinician if we have a clinician_id from the invite code
+        if let clinicianId = clinicianId {
+            patientData["clinician_id"] = clinicianId
+        }
+
         request.httpBody = try JSONSerialization.data(withJSONObject: patientData)
 
         let (data, response) = try await URLSession.shared.data(for: request)
