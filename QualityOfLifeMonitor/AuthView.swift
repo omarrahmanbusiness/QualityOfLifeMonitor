@@ -16,6 +16,8 @@ struct AuthView: View {
     @State private var inviteCode = ""
     @State private var showError = false
     @State private var errorMessage = ""
+    @State private var showForgotPassword = false
+    @State private var showResetSuccess = false
 
     var body: some View {
         NavigationView {
@@ -38,100 +40,160 @@ struct AuthView: View {
                     }
                     .padding(.top, 40)
 
-                    // Mode Toggle
-                    Picker("", selection: $isSignUp) {
-                        Text("Sign Up").tag(true)
-                        Text("Sign In").tag(false)
-                    }
-                    .pickerStyle(SegmentedPickerStyle())
-                    .padding(.horizontal)
+                    if showForgotPassword {
+                        // Forgot Password Form
+                        VStack(spacing: 16) {
+                            Text("Reset Password")
+                                .font(.headline)
 
-                    // Form
-                    VStack(spacing: 16) {
-                        // Email Field
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Email")
-                                .font(.caption)
+                            Text("Enter your email address and we'll send you a link to reset your password.")
+                                .font(.subheadline)
                                 .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
 
-                            TextField("your@email.com", text: $email)
-                                .textFieldStyle(RoundedBorderTextFieldStyle())
-                                .textContentType(.emailAddress)
-                                .autocapitalization(.none)
-                                .keyboardType(.emailAddress)
-                        }
-
-                        // Password Field
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Password")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-
-                            SecureField("Password", text: $password)
-                                .textFieldStyle(RoundedBorderTextFieldStyle())
-                                .textContentType(isSignUp ? .newPassword : .password)
-                        }
-
-                        // Confirm Password (Sign Up only)
-                        if isSignUp {
+                            // Email Field
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("Confirm Password")
+                                Text("Email")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
 
-                                SecureField("Confirm Password", text: $confirmPassword)
+                                TextField("your@email.com", text: $email)
                                     .textFieldStyle(RoundedBorderTextFieldStyle())
-                                    .textContentType(.newPassword)
-                            }
-
-                            // Invite Code
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Invite Code")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-
-                                TextField("Enter your invite code", text: $inviteCode)
-                                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                                    .textContentType(.emailAddress)
                                     .autocapitalization(.none)
+                                    .keyboardType(.emailAddress)
                             }
-                        }
-                    }
-                    .padding(.horizontal)
 
-                    // Submit Button
-                    Button(action: submit) {
-                        HStack {
-                            if authManager.isLoading {
-                                ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                            } else {
-                                Text(isSignUp ? "Create Account" : "Sign In")
-                                    .fontWeight(.semibold)
+                            // Send Reset Button
+                            Button(action: requestPasswordReset) {
+                                HStack {
+                                    if authManager.isLoading {
+                                        ProgressView()
+                                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                    } else {
+                                        Text("Send Reset Link")
+                                            .fontWeight(.semibold)
+                                    }
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(email.contains("@") ? Color.blue : Color.gray)
+                                .foregroundColor(.white)
+                                .cornerRadius(10)
                             }
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(isFormValid ? Color.blue : Color.gray)
-                        .foregroundColor(.white)
-                        .cornerRadius(10)
-                    }
-                    .disabled(!isFormValid || authManager.isLoading)
-                    .padding(.horizontal)
+                            .disabled(!email.contains("@") || authManager.isLoading)
 
-                    // Info text for sign up
-                    if isSignUp {
-                        VStack(spacing: 8) {
-                            Text("By creating an account, you agree to participate in health monitoring research.")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                .multilineTextAlignment(.center)
-
-                            Text("Your data will be collected passively and securely synced for analysis.")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                .multilineTextAlignment(.center)
+                            // Back to Sign In
+                            Button("Back to Sign In") {
+                                showForgotPassword = false
+                            }
+                            .font(.subheadline)
                         }
                         .padding(.horizontal)
+                    } else {
+                        // Mode Toggle
+                        Picker("", selection: $isSignUp) {
+                            Text("Sign Up").tag(true)
+                            Text("Sign In").tag(false)
+                        }
+                        .pickerStyle(SegmentedPickerStyle())
+                        .padding(.horizontal)
+
+                        // Form
+                        VStack(spacing: 16) {
+                            // Email Field
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Email")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+
+                                TextField("your@email.com", text: $email)
+                                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                                    .textContentType(.emailAddress)
+                                    .autocapitalization(.none)
+                                    .keyboardType(.emailAddress)
+                            }
+
+                            // Password Field
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Password")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+
+                                SecureField("Password", text: $password)
+                                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                                    .textContentType(isSignUp ? .newPassword : .password)
+                            }
+
+                            // Confirm Password (Sign Up only)
+                            if isSignUp {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Confirm Password")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+
+                                    SecureField("Confirm Password", text: $confirmPassword)
+                                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                                        .textContentType(.newPassword)
+                                }
+
+                                // Invite Code
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Invite Code")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+
+                                    TextField("Enter your invite code", text: $inviteCode)
+                                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                                        .autocapitalization(.none)
+                                }
+                            }
+                        }
+                        .padding(.horizontal)
+
+                        // Submit Button
+                        Button(action: submit) {
+                            HStack {
+                                if authManager.isLoading {
+                                    ProgressView()
+                                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                } else {
+                                    Text(isSignUp ? "Create Account" : "Sign In")
+                                        .fontWeight(.semibold)
+                                }
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(isFormValid ? Color.blue : Color.gray)
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                        }
+                        .disabled(!isFormValid || authManager.isLoading)
+                        .padding(.horizontal)
+
+                        // Forgot Password (Sign In only)
+                        if !isSignUp {
+                            Button("Forgot Password?") {
+                                showForgotPassword = true
+                            }
+                            .font(.subheadline)
+                        }
+
+                        // Info text for sign up
+                        if isSignUp {
+                            VStack(spacing: 8) {
+                                Text("By creating an account, you agree to participate in health monitoring research.")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                    .multilineTextAlignment(.center)
+
+                                Text("Your data will be collected passively and securely synced for analysis.")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                    .multilineTextAlignment(.center)
+                            }
+                            .padding(.horizontal)
+                        }
                     }
 
                     Spacer()
@@ -142,6 +204,13 @@ struct AuthView: View {
                 Button("OK", role: .cancel) {}
             } message: {
                 Text(errorMessage)
+            }
+            .alert("Check Your Email", isPresented: $showResetSuccess) {
+                Button("OK", role: .cancel) {
+                    showForgotPassword = false
+                }
+            } message: {
+                Text("If an account exists for \(email), you will receive a password reset link shortly.")
             }
         }
     }
@@ -171,6 +240,22 @@ struct AuthView: View {
                         email: email,
                         password: password
                     )
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = error.localizedDescription
+                    showError = true
+                }
+            }
+        }
+    }
+
+    private func requestPasswordReset() {
+        Task {
+            do {
+                try await authManager.resetPassword(email: email)
+                await MainActor.run {
+                    showResetSuccess = true
                 }
             } catch {
                 await MainActor.run {

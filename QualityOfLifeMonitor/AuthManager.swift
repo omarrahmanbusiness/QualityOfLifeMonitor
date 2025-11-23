@@ -387,6 +387,43 @@ final class AuthManager: ObservableObject {
         }
     }
 
+    /// Request password reset email
+    func resetPassword(email: String) async throws {
+        await MainActor.run {
+            isLoading = true
+            errorMessage = nil
+        }
+
+        defer {
+            Task { @MainActor in
+                isLoading = false
+            }
+        }
+
+        let url = URL(string: "\(supabaseURL)/auth/v1/recover")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue(supabaseAnonKey, forHTTPHeaderField: "apikey")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body = ["email": email]
+        request.httpBody = try JSONEncoder().encode(body)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw AuthManagerError.networkError
+        }
+
+        if !(200...299).contains(httpResponse.statusCode) {
+            if let errorResponse = try? JSONDecoder().decode(AuthError.self, from: data) {
+                let message = errorResponse.error_description ?? errorResponse.msg ?? errorResponse.message ?? "Password reset failed"
+                throw AuthManagerError.serverError(message)
+            }
+            throw AuthManagerError.serverError("Password reset failed with status \(httpResponse.statusCode)")
+        }
+    }
+
     /// Refresh the access token
     func refreshSession() async throws {
         guard let refreshToken = UserDefaults.standard.string(forKey: refreshTokenKey) else {
