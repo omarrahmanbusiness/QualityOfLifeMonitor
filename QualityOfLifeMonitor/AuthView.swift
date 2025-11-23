@@ -18,6 +18,9 @@ struct AuthView: View {
     @State private var errorMessage = ""
     @State private var showForgotPassword = false
     @State private var showResetSuccess = false
+    @State private var newPassword = ""
+    @State private var confirmNewPassword = ""
+    @State private var showPasswordUpdateSuccess = false
 
     var body: some View {
         NavigationView {
@@ -40,7 +43,68 @@ struct AuthView: View {
                     }
                     .padding(.top, 40)
 
-                    if showForgotPassword {
+                    if authManager.pendingRecoveryToken != nil {
+                        // Update Password Form (from recovery link)
+                        VStack(spacing: 16) {
+                            Text("Set New Password")
+                                .font(.headline)
+
+                            Text("Please enter your new password.")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+
+                            // New Password Field
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("New Password")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+
+                                SecureField("New Password", text: $newPassword)
+                                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                                    .textContentType(.newPassword)
+                            }
+
+                            // Confirm New Password Field
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Confirm New Password")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+
+                                SecureField("Confirm New Password", text: $confirmNewPassword)
+                                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                                    .textContentType(.newPassword)
+                            }
+
+                            // Update Password Button
+                            Button(action: updatePassword) {
+                                HStack {
+                                    if authManager.isLoading {
+                                        ProgressView()
+                                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                    } else {
+                                        Text("Update Password")
+                                            .fontWeight(.semibold)
+                                    }
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(isNewPasswordValid ? Color.blue : Color.gray)
+                                .foregroundColor(.white)
+                                .cornerRadius(10)
+                            }
+                            .disabled(!isNewPasswordValid || authManager.isLoading)
+
+                            // Cancel
+                            Button("Cancel") {
+                                authManager.pendingRecoveryToken = nil
+                                newPassword = ""
+                                confirmNewPassword = ""
+                            }
+                            .font(.subheadline)
+                        }
+                        .padding(.horizontal)
+                    } else if showForgotPassword {
                         // Forgot Password Form
                         VStack(spacing: 16) {
                             Text("Reset Password")
@@ -212,6 +276,11 @@ struct AuthView: View {
             } message: {
                 Text("If an account exists for \(email), you will receive a password reset link shortly.")
             }
+            .alert("Password Updated", isPresented: $showPasswordUpdateSuccess) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("Your password has been updated successfully. Please sign in with your new password.")
+            }
         }
     }
 
@@ -224,6 +293,10 @@ struct AuthView: View {
         } else {
             return emailValid && passwordValid
         }
+    }
+
+    private var isNewPasswordValid: Bool {
+        newPassword.count >= 6 && newPassword == confirmNewPassword
     }
 
     private func submit() {
@@ -256,6 +329,26 @@ struct AuthView: View {
                 try await authManager.resetPassword(email: email)
                 await MainActor.run {
                     showResetSuccess = true
+                }
+            } catch {
+                await MainActor.run {
+                    errorMessage = error.localizedDescription
+                    showError = true
+                }
+            }
+        }
+    }
+
+    private func updatePassword() {
+        guard let token = authManager.pendingRecoveryToken else { return }
+        Task {
+            do {
+                try await authManager.updatePassword(newPassword: newPassword, accessToken: token)
+                await MainActor.run {
+                    authManager.pendingRecoveryToken = nil
+                    newPassword = ""
+                    confirmNewPassword = ""
+                    showPasswordUpdateSuccess = true
                 }
             } catch {
                 await MainActor.run {

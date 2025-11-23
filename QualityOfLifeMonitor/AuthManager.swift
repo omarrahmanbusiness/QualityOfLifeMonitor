@@ -17,6 +17,7 @@ final class AuthManager: ObservableObject {
     @Published var currentUser: User?
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
+    @Published var pendingRecoveryToken: String?
 
     // MARK: - Configuration
     private let supabaseURL = Config.supabaseURL
@@ -384,6 +385,44 @@ final class AuthManager: ObservableObject {
             // Clear sync manager state
             clearSyncState()
             isLoading = false
+        }
+    }
+
+    /// Update password using access token from recovery link
+    func updatePassword(newPassword: String, accessToken: String) async throws {
+        await MainActor.run {
+            isLoading = true
+            errorMessage = nil
+        }
+
+        defer {
+            Task { @MainActor in
+                isLoading = false
+            }
+        }
+
+        let url = URL(string: "\(supabaseURL)/auth/v1/user")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.setValue(supabaseAnonKey, forHTTPHeaderField: "apikey")
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body = ["password": newPassword]
+        request.httpBody = try JSONEncoder().encode(body)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw AuthManagerError.networkError
+        }
+
+        if !(200...299).contains(httpResponse.statusCode) {
+            if let errorResponse = try? JSONDecoder().decode(AuthError.self, from: data) {
+                let message = errorResponse.error_description ?? errorResponse.msg ?? errorResponse.message ?? "Password update failed"
+                throw AuthManagerError.serverError(message)
+            }
+            throw AuthManagerError.serverError("Password update failed with status \(httpResponse.statusCode)")
         }
     }
 

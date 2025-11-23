@@ -41,6 +41,29 @@ struct QualityOfLifeMonitorApp: App {
         WindowGroup {
             RootView()
                 .environmentObject(authManager)
+                .onOpenURL { url in
+                    handleDeepLink(url)
+                }
+        }
+    }
+
+    private func handleDeepLink(_ url: URL) {
+        // Parse the URL fragment for access_token
+        // URL format: qualityoflifemonitor://reset-password#access_token=...&type=recovery
+        guard let fragment = url.fragment else { return }
+
+        // Parse fragment parameters
+        let params = fragment.components(separatedBy: "&")
+            .map { $0.components(separatedBy: "=") }
+            .filter { $0.count == 2 }
+            .reduce(into: [String: String]()) { dict, pair in
+                dict[pair[0]] = pair[1]
+            }
+
+        // Check if this is a recovery token
+        if let accessToken = params["access_token"],
+           params["type"] == "recovery" {
+            authManager.pendingRecoveryToken = accessToken
         }
     }
 }
