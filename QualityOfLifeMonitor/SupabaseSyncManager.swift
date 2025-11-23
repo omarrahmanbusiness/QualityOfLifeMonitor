@@ -204,7 +204,7 @@ final class SupabaseSyncManager {
         // Check if patient exists by device ID
         let checkURL = URL(string: "\(supabaseURL)/rest/v1/patients?device_id=eq.\(deviceId)&select=id")!
         var checkRequest = URLRequest(url: checkURL)
-        checkRequest.setValue(supabaseAnonKey, forHTTPHeaderField: "apikey")
+        addAuthHeaders(to: &checkRequest)
         checkRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let (checkData, _) = try await performRequestWithRetry(checkRequest)
@@ -220,7 +220,7 @@ final class SupabaseSyncManager {
         let createURL = URL(string: "\(supabaseURL)/rest/v1/patients")!
         var createRequest = URLRequest(url: createURL)
         createRequest.httpMethod = "POST"
-        createRequest.setValue(supabaseAnonKey, forHTTPHeaderField: "apikey")
+        addAuthHeaders(to: &createRequest)
         createRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         createRequest.setValue("return=representation", forHTTPHeaderField: "Prefer")
 
@@ -386,7 +386,7 @@ final class SupabaseSyncManager {
         let url = URL(string: "\(supabaseURL)/rest/v1/sync_history")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue(supabaseAnonKey, forHTTPHeaderField: "apikey")
+        addAuthHeaders(to: &request)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("return=representation", forHTTPHeaderField: "Prefer")
 
@@ -421,7 +421,7 @@ final class SupabaseSyncManager {
         let url = URL(string: "\(supabaseURL)/rest/v1/sync_history?id=eq.\(syncHistoryId)")!
         var request = URLRequest(url: url)
         request.httpMethod = "PATCH"
-        request.setValue(supabaseAnonKey, forHTTPHeaderField: "apikey")
+        addAuthHeaders(to: &request)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let updateRecord: [String: Any] = [
@@ -443,7 +443,7 @@ final class SupabaseSyncManager {
         let url = URL(string: "\(supabaseURL)/rest/v1/sync_history?id=eq.\(syncHistoryId)")!
         var request = URLRequest(url: url)
         request.httpMethod = "PATCH"
-        request.setValue(supabaseAnonKey, forHTTPHeaderField: "apikey")
+        addAuthHeaders(to: &request)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let updateRecord: [String: Any] = [
@@ -459,12 +459,20 @@ final class SupabaseSyncManager {
 
     // MARK: - Network Helpers
 
+    /// Get authorization header with access token if available
+    private func addAuthHeaders(to request: inout URLRequest) {
+        request.setValue(supabaseAnonKey, forHTTPHeaderField: "apikey")
+        if let token = AuthManager.shared.accessToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+    }
+
     /// Insert records with conflict handling
     private func insertRecords(table: String, records: [[String: Any]], onConflict: String) async throws {
         let url = URL(string: "\(supabaseURL)/rest/v1/\(table)?on_conflict=\(onConflict)")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue(supabaseAnonKey, forHTTPHeaderField: "apikey")
+        addAuthHeaders(to: &request)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("resolution=ignore-duplicates", forHTTPHeaderField: "Prefer")
 
@@ -484,7 +492,7 @@ final class SupabaseSyncManager {
         let url = URL(string: "\(supabaseURL)/rest/v1/\(table)")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue(supabaseAnonKey, forHTTPHeaderField: "apikey")
+        addAuthHeaders(to: &request)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("resolution=merge-duplicates", forHTTPHeaderField: "Prefer")
 
