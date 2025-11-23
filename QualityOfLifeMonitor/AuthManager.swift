@@ -36,15 +36,23 @@ final class AuthManager: ObservableObject {
     }
 
     struct AuthResponse: Codable {
-        let access_token: String
-        let refresh_token: String
-        let expires_in: Int
+        let access_token: String?
+        let refresh_token: String?
+        let expires_in: Int?
         let user: UserData
 
         struct UserData: Codable {
             let id: String
             let email: String?
         }
+    }
+
+    struct SignUpResponse: Codable {
+        let id: String?
+        let user: AuthResponse.UserData?
+        let access_token: String?
+        let refresh_token: String?
+        let expires_in: Int?
     }
 
     struct AuthError: Codable {
@@ -213,28 +221,75 @@ final class AuthManager: ObservableObject {
             throw AuthManagerError.serverError("Sign up failed with status \(httpResponse.statusCode)")
         }
 
-        let authResponse = try JSONDecoder().decode(AuthResponse.self, from: data)
+        // Try to decode the response - handle both email confirmation enabled/disabled cases
+        let decoder = JSONDecoder()
 
-        // Use the invite code
-        try await useInviteCode(inviteCode)
+        // First try full auth response (email confirmation disabled)
+        if let authResponse = try? decoder.decode(AuthResponse.self, from: data),
+           let accessToken = authResponse.access_token,
+           let refreshToken = authResponse.refresh_token,
+           let expiresIn = authResponse.expires_in {
 
-        // Create patient record linked to this user
-        try await createPatientRecord(
-            userId: authResponse.user.id,
-            email: email,
-            accessToken: authResponse.access_token
-        )
+            // Use the invite code
+            try await useInviteCode(inviteCode)
 
-        // Store session
-        let user = User(id: authResponse.user.id, email: email)
-        await MainActor.run {
-            storeSession(
-                accessToken: authResponse.access_token,
-                refreshToken: authResponse.refresh_token,
-                expiresIn: authResponse.expires_in,
-                user: user
+            // Create patient record linked to this user
+            try await createPatientRecord(
+                userId: authResponse.user.id,
+                email: email,
+                accessToken: accessToken
             )
+
+            // Store session
+            let user = User(id: authResponse.user.id, email: email)
+            await MainActor.run {
+                storeSession(
+                    accessToken: accessToken,
+                    refreshToken: refreshToken,
+                    expiresIn: expiresIn,
+                    user: user
+                )
+            }
+            return
         }
+
+        // Try sign up response (email confirmation enabled - user needs to verify)
+        if let signUpData = try? decoder.decode(SignUpResponse.self, from: data) {
+            let userId = signUpData.id ?? signUpData.user?.id
+
+            if let userId = userId {
+                // Use the invite code
+                try await useInviteCode(inviteCode)
+
+                // If we have tokens, user is auto-confirmed
+                if let accessToken = signUpData.access_token,
+                   let refreshToken = signUpData.refresh_token,
+                   let expiresIn = signUpData.expires_in {
+
+                    try await createPatientRecord(
+                        userId: userId,
+                        email: email,
+                        accessToken: accessToken
+                    )
+
+                    let user = User(id: userId, email: email)
+                    await MainActor.run {
+                        storeSession(
+                            accessToken: accessToken,
+                            refreshToken: refreshToken,
+                            expiresIn: expiresIn,
+                            user: user
+                        )
+                    }
+                } else {
+                    // Email confirmation required
+                    throw AuthManagerError.serverError("Please check your email to confirm your account, then sign in.")
+                }
+                return
+            }
+        }
+
+        throw AuthManagerError.serverError("Unexpected response from server")
     }
 
     /// Sign in an existing user
