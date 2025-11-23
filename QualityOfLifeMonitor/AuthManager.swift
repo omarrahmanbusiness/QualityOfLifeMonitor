@@ -458,19 +458,30 @@ final class AuthManager: ObservableObject {
 
         let (data, response) = try await URLSession.shared.data(for: request)
 
-        guard let httpResponse = response as? HTTPURLResponse,
-              (200...299).contains(httpResponse.statusCode) else {
-            // Patient might already exist, try to update
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw AuthManagerError.serverError("Failed to create patient record")
+        }
+
+        if (200...299).contains(httpResponse.statusCode) {
+            // Cache patient ID
+            if let patients = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]],
+               let patient = patients.first,
+               let patientId = patient["id"] as? String {
+                UserDefaults.standard.set(patientId, forKey: "supabasePatientId")
+            }
+            return
+        }
+
+        // If create failed with 409 (conflict), patient might already exist - try to update
+        if httpResponse.statusCode == 409 {
             try await updatePatientRecord(userId: userId, email: email, deviceId: deviceId, accessToken: accessToken)
             return
         }
 
-        // Cache patient ID
-        if let patients = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]],
-           let patient = patients.first,
-           let patientId = patient["id"] as? String {
-            UserDefaults.standard.set(patientId, forKey: "supabasePatientId")
-        }
+        // Log the error for debugging
+        let errorBody = String(data: data, encoding: .utf8) ?? "No error body"
+        FileLogger.shared.log("Patient creation failed: \(httpResponse.statusCode) - \(errorBody)")
+        throw AuthManagerError.serverError("Failed to create patient record: \(httpResponse.statusCode)")
     }
 
     /// Update existing patient record with user_id
@@ -488,7 +499,14 @@ final class AuthManager: ObservableObject {
         ]
         request.httpBody = try JSONEncoder().encode(updateData)
 
-        _ = try await URLSession.shared.data(for: request)
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse,
+              (200...299).contains(httpResponse.statusCode) else {
+            let errorBody = String(data: data, encoding: .utf8) ?? "No error body"
+            FileLogger.shared.log("Patient update failed: \(errorBody)")
+            throw AuthManagerError.serverError("Failed to update patient record")
+        }
     }
 
     // MARK: - Helpers
