@@ -205,7 +205,7 @@ final class AuthManager: ObservableObject {
             "email": email,
             "password": password,
             "options": [
-                "email_redirect_to": Config.emailRedirectURL
+                
             ]
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)

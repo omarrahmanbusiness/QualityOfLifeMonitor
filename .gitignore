@@ -35,4 +35,4 @@ fastlane/test_output
 *.swp
 *.swo
 .DS_Store
-QualityOfLifeMonitor/Configuration.swift
+QualityOfLifeMonitor/Config.swift
