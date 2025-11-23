@@ -200,7 +200,7 @@ final class SupabaseSyncManager {
             return existing
         }
 
-        // Check if patient exists by device ID
+        // Check if patient exists by device ID (RLS will filter to user's own records)
         let checkURL = URL(string: "\(supabaseURL)/rest/v1/patients?device_id=eq.\(deviceId)&select=id")!
         var checkRequest = URLRequest(url: checkURL)
         addAuthHeaders(to: &checkRequest)
@@ -215,7 +215,11 @@ final class SupabaseSyncManager {
             return id
         }
 
-        // Create new patient
+        // Create new patient with user_id for RLS compliance
+        guard let userId = AuthManager.shared.userId else {
+            throw SyncError.patientCreationFailed
+        }
+
         let createURL = URL(string: "\(supabaseURL)/rest/v1/patients")!
         var createRequest = URLRequest(url: createURL)
         createRequest.httpMethod = "POST"
@@ -223,7 +227,10 @@ final class SupabaseSyncManager {
         createRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         createRequest.setValue("return=representation", forHTTPHeaderField: "Prefer")
 
-        let patientData = ["device_id": deviceId]
+        let patientData: [String: String] = [
+            "device_id": deviceId,
+            "user_id": userId
+        ]
         createRequest.httpBody = try JSONEncoder().encode(patientData)
 
         let (createData, _) = try await performRequestWithRetry(createRequest)
