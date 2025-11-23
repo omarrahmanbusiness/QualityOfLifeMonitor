@@ -15,9 +15,8 @@ final class SupabaseSyncManager {
     static let shared = SupabaseSyncManager()
 
     // MARK: - Configuration
-    // TODO: Replace with your Supabase credentials
-    private let supabaseURL = "YOUR_SUPABASE_URL"  // e.g., "https://xxxxx.supabase.co"
-    private let supabaseAnonKey = "YOUR_SUPABASE_ANON_KEY"
+    private let supabaseURL = Config.supabaseURL
+    private let supabaseAnonKey = Config.supabaseAnonKey
 
     // Background task identifier
     static let syncTaskIdentifier = "com.qualityoflifemonitor.dailysync"
@@ -201,10 +200,10 @@ final class SupabaseSyncManager {
             return existing
         }
 
-        // Check if patient exists by device ID
+        // Check if patient exists by device ID (RLS will filter to user's own records)
         let checkURL = URL(string: "\(supabaseURL)/rest/v1/patients?device_id=eq.\(deviceId)&select=id")!
         var checkRequest = URLRequest(url: checkURL)
-        checkRequest.setValue(supabaseAnonKey, forHTTPHeaderField: "apikey")
+        addAuthHeaders(to: &checkRequest)
         checkRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let (checkData, _) = try await performRequestWithRetry(checkRequest)
@@ -216,15 +215,22 @@ final class SupabaseSyncManager {
             return id
         }
 
-        // Create new patient
+        // Create new patient with user_id for RLS compliance
+        guard let userId = AuthManager.shared.userId else {
+            throw SyncError.patientCreationFailed
+        }
+
         let createURL = URL(string: "\(supabaseURL)/rest/v1/patients")!
         var createRequest = URLRequest(url: createURL)
         createRequest.httpMethod = "POST"
-        createRequest.setValue(supabaseAnonKey, forHTTPHeaderField: "apikey")
+        addAuthHeaders(to: &createRequest)
         createRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         createRequest.setValue("return=representation", forHTTPHeaderField: "Prefer")
 
-        let patientData = ["device_id": deviceId]
+        let patientData: [String: String] = [
+            "device_id": deviceId,
+            "user_id": userId
+        ]
         createRequest.httpBody = try JSONEncoder().encode(patientData)
 
         let (createData, _) = try await performRequestWithRetry(createRequest)
@@ -386,7 +392,7 @@ final class SupabaseSyncManager {
         let url = URL(string: "\(supabaseURL)/rest/v1/sync_history")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue(supabaseAnonKey, forHTTPHeaderField: "apikey")
+        addAuthHeaders(to: &request)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("return=representation", forHTTPHeaderField: "Prefer")
 
@@ -421,7 +427,7 @@ final class SupabaseSyncManager {
         let url = URL(string: "\(supabaseURL)/rest/v1/sync_history?id=eq.\(syncHistoryId)")!
         var request = URLRequest(url: url)
         request.httpMethod = "PATCH"
-        request.setValue(supabaseAnonKey, forHTTPHeaderField: "apikey")
+        addAuthHeaders(to: &request)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let updateRecord: [String: Any] = [
@@ -443,7 +449,7 @@ final class SupabaseSyncManager {
         let url = URL(string: "\(supabaseURL)/rest/v1/sync_history?id=eq.\(syncHistoryId)")!
         var request = URLRequest(url: url)
         request.httpMethod = "PATCH"
-        request.setValue(supabaseAnonKey, forHTTPHeaderField: "apikey")
+        addAuthHeaders(to: &request)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let updateRecord: [String: Any] = [
@@ -459,12 +465,20 @@ final class SupabaseSyncManager {
 
     // MARK: - Network Helpers
 
+    /// Get authorization header with access token if available
+    private func addAuthHeaders(to request: inout URLRequest) {
+        request.setValue(supabaseAnonKey, forHTTPHeaderField: "apikey")
+        if let token = AuthManager.shared.accessToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+    }
+
     /// Insert records with conflict handling
     private func insertRecords(table: String, records: [[String: Any]], onConflict: String) async throws {
         let url = URL(string: "\(supabaseURL)/rest/v1/\(table)?on_conflict=\(onConflict)")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue(supabaseAnonKey, forHTTPHeaderField: "apikey")
+        addAuthHeaders(to: &request)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("resolution=ignore-duplicates", forHTTPHeaderField: "Prefer")
 
@@ -484,7 +498,7 @@ final class SupabaseSyncManager {
         let url = URL(string: "\(supabaseURL)/rest/v1/\(table)")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue(supabaseAnonKey, forHTTPHeaderField: "apikey")
+        addAuthHeaders(to: &request)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("resolution=merge-duplicates", forHTTPHeaderField: "Prefer")
 

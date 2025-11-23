@@ -130,6 +130,138 @@ struct ContentView: View {
                 .tabItem {
                     Label("Data", systemImage: "tray.full")
                 }
+            ProfileView()
+                .tabItem {
+                    Label("Profile", systemImage: "person.circle")
+                }
+        }
+    }
+}
+
+// MARK: - Profile View
+
+struct ProfileView: View {
+    @ObservedObject private var authManager = AuthManager.shared
+    @State private var showSignOutAlert = false
+    @State private var deleteDataOnSignOut = false
+    @State private var isSyncing = false
+    @State private var syncMessage = ""
+
+    var body: some View {
+        NavigationStack {
+            List {
+                // User Info Section
+                Section {
+                    HStack {
+                        Image(systemName: "person.circle.fill")
+                            .font(.system(size: 50))
+                            .foregroundColor(.blue)
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(authManager.currentUser?.email ?? "Unknown")
+                                .font(.headline)
+                            Text("Patient ID: \(String(authManager.userId?.prefix(8) ?? "..."))")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.leading, 8)
+                    }
+                    .padding(.vertical, 8)
+                }
+
+                // Sync Section
+                Section("Data Sync") {
+                    HStack {
+                        Text("Last Sync")
+                        Spacer()
+                        if let lastSync = SupabaseSyncManager.shared.lastSyncDate {
+                            Text(lastSync, style: .relative)
+                                .foregroundColor(.secondary)
+                        } else {
+                            Text("Never")
+                                .foregroundColor(.secondary)
+                        }
+                    }
+
+                    Button(action: syncNow) {
+                        HStack {
+                            if isSyncing {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle())
+                                Text("Syncing...")
+                            } else {
+                                Image(systemName: "arrow.triangle.2.circlepath")
+                                Text("Sync Now")
+                            }
+                        }
+                    }
+                    .disabled(isSyncing)
+
+                    if !syncMessage.isEmpty {
+                        Text(syncMessage)
+                            .font(.caption)
+                            .foregroundColor(syncMessage.contains("Error") ? .red : .green)
+                    }
+                }
+
+                // Account Section
+                Section("Account") {
+                    Button(role: .destructive, action: { showSignOutAlert = true }) {
+                        HStack {
+                            Image(systemName: "rectangle.portrait.and.arrow.right")
+                            Text("Sign Out")
+                        }
+                    }
+                }
+
+                // App Info Section
+                Section("About") {
+                    HStack {
+                        Text("Version")
+                        Spacer()
+                        Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            .navigationTitle("Profile")
+            .alert("Sign Out", isPresented: $showSignOutAlert) {
+                Button("Sign Out", role: .destructive) {
+                    signOut(deleteData: false)
+                }
+                Button("Sign Out & Delete Data", role: .destructive) {
+                    signOut(deleteData: true)
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Do you want to sign out? You can optionally delete all local data.")
+            }
+        }
+    }
+
+    private func syncNow() {
+        isSyncing = true
+        syncMessage = ""
+
+        Task {
+            do {
+                try await SupabaseSyncManager.shared.syncNow()
+                await MainActor.run {
+                    syncMessage = "Sync completed successfully"
+                    isSyncing = false
+                }
+            } catch {
+                await MainActor.run {
+                    syncMessage = "Error: \(error.localizedDescription)"
+                    isSyncing = false
+                }
+            }
+        }
+    }
+
+    private func signOut(deleteData: Bool) {
+        Task {
+            await authManager.signOut(deleteLocalData: deleteData)
         }
     }
 }
