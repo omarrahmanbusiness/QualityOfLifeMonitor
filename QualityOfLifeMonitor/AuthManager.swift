@@ -201,11 +201,14 @@ final class AuthManager: ObservableObject {
         request.setValue(supabaseAnonKey, forHTTPHeaderField: "apikey")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let body: [String: String] = [
+        let body: [String: Any] = [
             "email": email,
-            "password": password
+            "password": password,
+            "options": [
+                "email_redirect_to": Config.emailRedirectURL
+            ]
         ]
-        request.httpBody = try JSONEncoder().encode(body)
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let (data, response) = try await URLSession.shared.data(for: request)
 
