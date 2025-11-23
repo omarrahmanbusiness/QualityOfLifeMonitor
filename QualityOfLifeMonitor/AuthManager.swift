@@ -19,9 +19,8 @@ final class AuthManager: ObservableObject {
     @Published var errorMessage: String?
 
     // MARK: - Configuration
-    // TODO: Replace with your Supabase credentials (same as SupabaseSyncManager)
-    private let supabaseURL = "YOUR_SUPABASE_URL"
-    private let supabaseAnonKey = "YOUR_SUPABASE_ANON_KEY"
+    private let supabaseURL = Config.supabaseURL
+    private let supabaseAnonKey = Config.supabaseAnonKey
 
     // UserDefaults keys
     private let accessTokenKey = "supabaseAccessToken"

@@ -15,9 +15,8 @@ final class SupabaseSyncManager {
     static let shared = SupabaseSyncManager()
 
     // MARK: - Configuration
-    // TODO: Replace with your Supabase credentials
-    private let supabaseURL = "YOUR_SUPABASE_URL"  // e.g., "https://xxxxx.supabase.co"
-    private let supabaseAnonKey = "YOUR_SUPABASE_ANON_KEY"
+    private let supabaseURL = Config.supabaseURL
+    private let supabaseAnonKey = Config.supabaseAnonKey
 
     // Background task identifier
     static let syncTaskIdentifier = "com.qualityoflifemonitor.dailysync"
