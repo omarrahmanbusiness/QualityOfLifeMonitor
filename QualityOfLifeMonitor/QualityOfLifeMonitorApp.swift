@@ -16,6 +16,8 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     ) -> Bool {
         // Register background sync task
         SupabaseSyncManager.shared.registerBackgroundTask()
+        // Schedule after registration
+        SupabaseSyncManager.shared.scheduleNextSync()
         return true
     }
 }
@@ -48,9 +50,6 @@ struct QualityOfLifeMonitorApp: App {
             ScreenTimeManager.shared.configure(publisher: screenTimePublisher)
             // Start will be called after authorization is granted in StatusViewModel
         }
-
-        // Schedule daily Supabase sync
-        SupabaseSyncManager.shared.scheduleNextSync()
     }
 
     var body: some Scene {

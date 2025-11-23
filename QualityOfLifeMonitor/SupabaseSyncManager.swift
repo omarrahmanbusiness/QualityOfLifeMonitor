@@ -243,7 +243,7 @@ final class SupabaseSyncManager {
 
     /// Sync health samples to Supabase
     private func syncHealthSamples(patientId: String) async throws -> Int {
-        let context = CoreDataManager.shared.viewContext
+        let context = CoreDataManager.shared.context
 
         let fetchRequest: NSFetchRequest<HealthSampleEntity> = HealthSampleEntity.fetchRequest()
 
@@ -278,7 +278,7 @@ final class SupabaseSyncManager {
 
     /// Sync locations to Supabase
     private func syncLocations(patientId: String) async throws -> Int {
-        let context = CoreDataManager.shared.viewContext
+        let context = CoreDataManager.shared.context
 
         let fetchRequest: NSFetchRequest<LocationEntity> = LocationEntity.fetchRequest()
 
@@ -314,7 +314,7 @@ final class SupabaseSyncManager {
 
     /// Sync screen time data to Supabase
     private func syncScreenTime(patientId: String) async throws -> Int {
-        let context = CoreDataManager.shared.viewContext
+        let context = CoreDataManager.shared.context
 
         let fetchRequest: NSFetchRequest<ScreenTimeEntity> = ScreenTimeEntity.fetchRequest()
 
@@ -351,7 +351,7 @@ final class SupabaseSyncManager {
 
     /// Sync heart failure events to Supabase
     private func syncHeartFailureEvents(patientId: String) async throws -> Int {
-        let context = CoreDataManager.shared.viewContext
+        let context = CoreDataManager.shared.context
 
         let fetchRequest: NSFetchRequest<HeartFailureEventEntity> = HeartFailureEventEntity.fetchRequest()
 
