@@ -333,13 +333,19 @@ final class AuthManager: ObservableObject {
 
         let authResponse = try JSONDecoder().decode(AuthResponse.self, from: data)
 
+        guard let accessToken = authResponse.access_token,
+              let refreshToken = authResponse.refresh_token,
+              let expiresIn = authResponse.expires_in else {
+            throw AuthManagerError.serverError("Invalid sign in response")
+        }
+
         // Store session
         let user = User(id: authResponse.user.id, email: authResponse.user.email ?? email)
         await MainActor.run {
             storeSession(
-                accessToken: authResponse.access_token,
-                refreshToken: authResponse.refresh_token,
-                expiresIn: authResponse.expires_in,
+                accessToken: accessToken,
+                refreshToken: refreshToken,
+                expiresIn: expiresIn,
                 user: user
             )
         }
@@ -405,6 +411,12 @@ final class AuthManager: ObservableObject {
 
         let authResponse = try JSONDecoder().decode(AuthResponse.self, from: data)
 
+        guard let accessToken = authResponse.access_token,
+              let newRefreshToken = authResponse.refresh_token,
+              let expiresIn = authResponse.expires_in else {
+            throw AuthManagerError.serverError("Invalid refresh response")
+        }
+
         let user = User(
             id: authResponse.user.id,
             email: authResponse.user.email ?? currentUser?.email ?? ""
@@ -412,9 +424,9 @@ final class AuthManager: ObservableObject {
 
         await MainActor.run {
             storeSession(
-                accessToken: authResponse.access_token,
-                refreshToken: authResponse.refresh_token,
-                expiresIn: authResponse.expires_in,
+                accessToken: accessToken,
+                refreshToken: newRefreshToken,
+                expiresIn: expiresIn,
                 user: user
             )
         }
