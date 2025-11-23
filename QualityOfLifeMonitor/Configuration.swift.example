@@ -1,0 +1,15 @@
+//
+//  Configuration.swift
+//  QualityOfLifeMonitor
+//
+//  Copy this file to Configuration.swift and fill in your credentials.
+//  Configuration.swift is gitignored and won't be committed.
+//
+
+import Foundation
+
+enum Config {
+    // Supabase Configuration
+    static let supabaseURL = "YOUR_SUPABASE_URL"  // e.g., "https://xxxxx.supabase.co"
+    static let supabaseAnonKey = "YOUR_SUPABASE_ANON_KEY"
+}
