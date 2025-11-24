@@ -151,6 +151,11 @@ struct HealthSampleRow: View {
     }
 
     private func formatValue(_ value: Double, unit: String) -> String {
+        // Sleep stages - display the stage name with duration
+        if isSleepStage(unit) {
+            return formatSleepStage(unit)
+        }
+
         if unit == "category" {
             return categoryValueDescription(Int(value))
         }
@@ -161,6 +166,23 @@ struct HealthSampleRow: View {
 
         let formattedValue = formatter.string(from: NSNumber(value: value)) ?? String(value)
         return "\(formattedValue) \(unit)"
+    }
+
+    private func isSleepStage(_ unit: String) -> Bool {
+        let sleepUnits = ["inBed", "asleep", "awake", "asleepCore", "asleepDeep", "asleepREM", "sleep"]
+        return sleepUnits.contains(unit)
+    }
+
+    private func formatSleepStage(_ unit: String) -> String {
+        switch unit {
+        case "inBed": return "In Bed"
+        case "asleep": return "Asleep"
+        case "awake": return "Awake"
+        case "asleepCore": return "Core Sleep"
+        case "asleepDeep": return "Deep Sleep"
+        case "asleepREM": return "REM Sleep"
+        default: return "Sleep"
+        }
     }
 
     private func categoryValueDescription(_ value: Int) -> String {
