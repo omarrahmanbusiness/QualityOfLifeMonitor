@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maria's IB Tutoring - Expert International Baccalaureate Tutor</title>
+    <meta name="description" content="Expert IB tutoring by Maria - Personalized International Baccalaureate tutoring for all subjects and levels">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-content">
+                <div class="logo">
+                    <h2>Maria's IB Tutoring</h2>
+                </div>
+                <ul class="nav-links">
+                    <li><a href="#home">Home</a></li>
+                    <li><a href="#packages">Packages</a></li>
+                    <li><a href="#about">About</a></li>
+                    <li><a href="#subjects">Subjects</a></li>
+                    <li><a href="#contact">Contact</a></li>
+                </ul>
+                <button class="mobile-menu-btn" id="mobileMenuBtn">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section id="home" class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <h1 class="hero-title">Excel in Your IB Journey</h1>
+                <p class="hero-subtitle">Expert tutoring for International Baccalaureate students at all levels</p>
+                <p class="hero-description">Personalized instruction tailored to your learning style. Achieve your academic goals with proven strategies and dedicated support.</p>
+                <div class="hero-buttons">
+                    <a href="#packages" class="btn btn-primary">View Packages</a>
+                    <a href="#contact" class="btn btn-secondary">Book Free Consultation</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Packages Section -->
+    <section id="packages" class="packages">
+        <div class="container">
+            <div class="section-header">
+                <h2>Tutoring Packages</h2>
+                <p>Choose the package that best fits your learning needs</p>
+            </div>
+            <div class="packages-grid">
+                <!-- Starter Package -->
+                <div class="package-card">
+                    <div class="package-badge">Popular</div>
+                    <h3 class="package-title">Starter Package</h3>
+                    <div class="package-price">
+                        <span class="price">$60</span>
+                        <span class="period">per hour</span>
+                    </div>
+                    <ul class="package-features">
+                        <li>Single subject focus</li>
+                        <li>Flexible scheduling</li>
+                        <li>1-on-1 online sessions</li>
+                        <li>Study materials included</li>
+                        <li>Email support</li>
+                        <li>Progress tracking</li>
+                    </ul>
+                    <button class="btn btn-package" onclick="selectPackage('Starter Package')">Get Started</button>
+                </div>
+
+                <!-- Standard Package -->
+                <div class="package-card featured">
+                    <div class="package-badge">Best Value</div>
+                    <h3 class="package-title">Standard Package</h3>
+                    <div class="package-price">
+                        <span class="price">$280</span>
+                        <span class="period">5 hours (save $20)</span>
+                    </div>
+                    <ul class="package-features">
+                        <li>Single or multiple subjects</li>
+                        <li>Priority scheduling</li>
+                        <li>1-on-1 online sessions</li>
+                        <li>Comprehensive study materials</li>
+                        <li>24/7 email support</li>
+                        <li>Detailed progress reports</li>
+                        <li>Practice exam papers</li>
+                        <li>Study plan development</li>
+                    </ul>
+                    <button class="btn btn-package btn-featured" onclick="selectPackage('Standard Package')">Get Started</button>
+                </div>
+
+                <!-- Premium Package -->
+                <div class="package-card">
+                    <div class="package-badge">Most Comprehensive</div>
+                    <h3 class="package-title">Premium Package</h3>
+                    <div class="package-price">
+                        <span class="price">$540</span>
+                        <span class="period">10 hours (save $60)</span>
+                    </div>
+                    <ul class="package-features">
+                        <li>Multiple subjects coverage</li>
+                        <li>Priority scheduling</li>
+                        <li>1-on-1 online sessions</li>
+                        <li>All study materials included</li>
+                        <li>24/7 priority support</li>
+                        <li>Weekly progress reports</li>
+                        <li>Full exam preparation</li>
+                        <li>Personalized study plan</li>
+                        <li>Extended essay guidance</li>
+                        <li>IA support</li>
+                    </ul>
+                    <button class="btn btn-package" onclick="selectPackage('Premium Package')">Get Started</button>
+                </div>
+
+                <!-- Intensive Package -->
+                <div class="package-card">
+                    <div class="package-badge">Exam Prep</div>
+                    <h3 class="package-title">Intensive Exam Prep</h3>
+                    <div class="package-price">
+                        <span class="price">$1020</span>
+                        <span class="period">20 hours (save $180)</span>
+                    </div>
+                    <ul class="package-features">
+                        <li>Comprehensive exam preparation</li>
+                        <li>All subjects available</li>
+                        <li>Flexible scheduling</li>
+                        <li>1-on-1 intensive sessions</li>
+                        <li>Complete study package</li>
+                        <li>24/7 priority support</li>
+                        <li>Bi-weekly progress reports</li>
+                        <li>Mock exams included</li>
+                        <li>Extended essay & IA support</li>
+                        <li>CAS guidance</li>
+                        <li>University prep advice</li>
+                    </ul>
+                    <button class="btn btn-package" onclick="selectPackage('Intensive Exam Prep')">Get Started</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Subjects Section -->
+    <section id="subjects" class="subjects">
+        <div class="container">
+            <div class="section-header">
+                <h2>IB Subjects Offered</h2>
+                <p>Expert tutoring across all IB subject groups</p>
+            </div>
+            <div class="subjects-grid">
+                <div class="subject-card">
+                    <div class="subject-icon">📚</div>
+                    <h3>Group 1: Studies in Language & Literature</h3>
+                    <p>Language A: Literature, Language & Literature</p>
+                </div>
+                <div class="subject-card">
+                    <div class="subject-icon">🌍</div>
+                    <h3>Group 2: Language Acquisition</h3>
+                    <p>Language B, ab initio courses</p>
+                </div>
+                <div class="subject-card">
+                    <div class="subject-icon">🏛️</div>
+                    <h3>Group 3: Individuals & Societies</h3>
+                    <p>History, Economics, Psychology, Geography</p>
+                </div>
+                <div class="subject-card">
+                    <div class="subject-icon">🔬</div>
+                    <h3>Group 4: Sciences</h3>
+                    <p>Biology, Chemistry, Physics, Environmental Systems</p>
+                </div>
+                <div class="subject-card">
+                    <div class="subject-icon">📐</div>
+                    <h3>Group 5: Mathematics</h3>
+                    <p>Analysis & Approaches, Applications & Interpretation</p>
+                </div>
+                <div class="subject-card">
+                    <div class="subject-icon">🎨</div>
+                    <h3>Group 6: The Arts</h3>
+                    <p>Visual Arts, Music, Theatre, Film</p>
+                </div>
+                <div class="subject-card">
+                    <div class="subject-icon">✍️</div>
+                    <h3>Core Components</h3>
+                    <p>Extended Essay, TOK, CAS guidance</p>
+                </div>
+                <div class="subject-card">
+                    <div class="subject-icon">🎓</div>
+                    <h3>Exam Preparation</h3>
+                    <p>Paper strategies, IA support, mock exams</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- About Section -->
+    <section id="about" class="about">
+        <div class="container">
+            <div class="about-content">
+                <div class="about-image">
+                    <div class="image-placeholder">
+                        <span>👩‍🏫</span>
+                    </div>
+                </div>
+                <div class="about-text">
+                    <h2>About Maria</h2>
+                    <p class="about-intro">Passionate educator dedicated to IB student success</p>
+                    <p>With years of experience in International Baccalaureate education, Maria brings a deep understanding of the IB curriculum and assessment criteria. Her teaching philosophy centers on personalized learning, building strong foundational knowledge, and developing critical thinking skills essential for IB success.</p>
+                    <div class="credentials">
+                        <div class="credential-item">
+                            <h4>✓ IB Curriculum Expert</h4>
+                            <p>Comprehensive knowledge of all IB subject groups and core components</p>
+                        </div>
+                        <div class="credential-item">
+                            <h4>✓ Proven Track Record</h4>
+                            <p>Students consistently achieve their target grades and university placements</p>
+                        </div>
+                        <div class="credential-item">
+                            <h4>✓ Personalized Approach</h4>
+                            <p>Tailored instruction based on individual learning styles and goals</p>
+                        </div>
+                        <div class="credential-item">
+                            <h4>✓ Holistic Support</h4>
+                            <p>Guidance beyond academics including study skills and exam strategies</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Testimonials Section -->
+    <section class="testimonials">
+        <div class="container">
+            <div class="section-header">
+                <h2>Student Success Stories</h2>
+                <p>What students and parents say about Maria's tutoring</p>
+            </div>
+            <div class="testimonials-grid">
+                <div class="testimonial-card">
+                    <div class="stars">★★★★★</div>
+                    <p class="testimonial-text">"Maria helped me understand complex IB Chemistry concepts with ease. Her teaching methods are clear and effective. I improved from a 4 to a 7!"</p>
+                    <p class="testimonial-author">- Sarah K., IB Diploma Student</p>
+                </div>
+                <div class="testimonial-card">
+                    <div class="stars">★★★★★</div>
+                    <p class="testimonial-text">"The Extended Essay guidance was invaluable. Maria helped me structure my research and refine my arguments. I received an A on my EE!"</p>
+                    <p class="testimonial-author">- James M., IB Graduate</p>
+                </div>
+                <div class="testimonial-card">
+                    <div class="stars">★★★★★</div>
+                    <p class="testimonial-text">"As a parent, I'm impressed by Maria's dedication and the progress my daughter has made. Her grades improved significantly, and she feels confident about her exams."</p>
+                    <p class="testimonial-author">- Mrs. Thompson, Parent</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section id="contact" class="contact">
+        <div class="container">
+            <div class="section-header">
+                <h2>Get Started Today</h2>
+                <p>Book your free consultation or inquire about tutoring packages</p>
+            </div>
+            <div class="contact-content">
+                <div class="contact-info">
+                    <h3>Contact Information</h3>
+                    <div class="contact-item">
+                        <strong>Email:</strong>
+                        <a href="mailto:maria@ibtutoring.com">maria@ibtutoring.com</a>
+                    </div>
+                    <div class="contact-item">
+                        <strong>Response Time:</strong>
+                        <p>Within 24 hours</p>
+                    </div>
+                    <div class="contact-item">
+                        <strong>Free Consultation:</strong>
+                        <p>30-minute introductory session to discuss your learning goals</p>
+                    </div>
+                    <div class="contact-item">
+                        <strong>Session Format:</strong>
+                        <p>Online via Zoom or your preferred platform</p>
+                    </div>
+                </div>
+                <form class="contact-form" id="contactForm">
+                    <div class="form-group">
+                        <label for="name">Full Name *</label>
+                        <input type="text" id="name" name="name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="email">Email Address *</label>
+                        <input type="email" id="email" name="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="phone">Phone Number</label>
+                        <input type="tel" id="phone" name="phone">
+                    </div>
+                    <div class="form-group">
+                        <label for="package">Interested Package</label>
+                        <select id="package" name="package">
+                            <option value="">Select a package...</option>
+                            <option value="starter">Starter Package</option>
+                            <option value="standard">Standard Package</option>
+                            <option value="premium">Premium Package</option>
+                            <option value="intensive">Intensive Exam Prep</option>
+                            <option value="custom">Custom Package</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="subject">Subject(s) of Interest</label>
+                        <input type="text" id="subject" name="subject" placeholder="e.g., IB Math, Chemistry, Extended Essay">
+                    </div>
+                    <div class="form-group">
+                        <label for="message">Message *</label>
+                        <textarea id="message" name="message" rows="5" required placeholder="Tell me about your learning goals and what you'd like to achieve..."></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-submit">Send Message</button>
+                    <div id="formStatus" class="form-status"></div>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>Maria's IB Tutoring</h3>
+                    <p>Expert International Baccalaureate tutoring for ambitious students</p>
+                </div>
+                <div class="footer-section">
+                    <h4>Quick Links</h4>
+                    <ul>
+                        <li><a href="#home">Home</a></li>
+                        <li><a href="#packages">Packages</a></li>
+                        <li><a href="#about">About</a></li>
+                        <li><a href="#contact">Contact</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>Contact</h4>
+                    <p>Email: maria@ibtutoring.com</p>
+                    <p>Available for online sessions worldwide</p>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2024 Maria's IB Tutoring. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
